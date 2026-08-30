@@ -1,0 +1,4 @@
+{
+  "_comment": "Optional. Speeds up casting by skipping mDNS discovery, which is unreliable when running as a service. Copy to cast_hosts.json and use your own addresses.",
+  "Living Room speaker": "192.168.1.50"
+}

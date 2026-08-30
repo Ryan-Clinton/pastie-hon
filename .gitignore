@@ -1,0 +1,36 @@
+# ---- SECRETS - never commit ----
+# .credentials holds the hOn email + password and the Hue bridge API key.
+# cast_hosts.json holds local LAN addresses.
+.credentials
+cast_hosts.json
+
+# ---- PRIVATE DATA ----
+# The hOn API returns the appliance's registered GPS coordinates, MAC address
+# and serial number in dump/. hue_alert.json holds a personal message and
+# tts_cache/ holds it rendered as speech.
+dump/
+hue_alert.json
+tts_cache/
+*.log
+*.log.prev
+
+# ---- THIRD PARTY - not ours to redistribute ----
+hon-README.md
+hon-revived-README.md
+pyhon-README.md
+hon-const.py
+hon-en.json
+translate-en.txt
+
+# ---- BUILD ARTEFACTS ----
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.exe
+*.spec
+
+# ---- SCRATCH ----
+*.bak
+*.bak2
