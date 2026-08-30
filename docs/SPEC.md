@@ -169,7 +169,9 @@ Work required:
 - Scene activation as an alert type
 - Subscribe to the event stream so the app reflects lights changed elsewhere
 
-Keep a v1 fallback for older bridges for one release, then drop it.
+Decide once whether to carry a v1 fallback for pre-v2 bridges at all.
+Supporting both doubles the surface area of the least interesting code in
+the project; dropping it excludes anyone on old hardware.
 
 ### 4.3 Other lighting
 
@@ -233,7 +235,7 @@ Two options:
   Zero-code on the HA side, works with any broker.
 - **Custom component** — a thin HA integration talking to the daemon's local API.
 
-MQTT discovery is the lower-effort path and should come first.
+MQTT discovery is the lower-effort path of the two.
 
 ### 5.3 Important constraint
 
@@ -308,8 +310,9 @@ MQTT**, which means near-instant state changes are possible instead of a
 120-second poll. That removes up to two minutes of alert latency and cuts cloud
 requests dramatically.
 
-This is the single biggest functional improvement available and should be
-investigated early.
+This is the single biggest functional improvement available. Establish whether
+it works before committing to a polling architecture, because it changes the
+shape of the daemon.
 
 ### 7.2 Energy tracking and cheap-rate scheduling
 
@@ -387,36 +390,10 @@ coordinates, MAC and serial**) and committing as test data.
 
 ---
 
-## 8. Phasing
+## 8. Decisions needed before starting
 
-Ordered so each phase is independently useful and nothing is a big-bang rewrite.
-
-**Phase 1 — foundations**
-Package layout, `pyproject.toml`, keyring credential store with migration,
-unified versioned config, structured logging with redaction, test fixtures.
-*No user-visible change beyond the credentials screen.*
-
-**Phase 2 — the daemon split**
-Single daemon owning provider connections, localhost API with SSE, GUI becomes a
-client. Fixes double-polling and state disagreement.
-
-**Phase 3 — notifier framework**
-Notifier ABC, move Hue and Cast behind it, schema-generated settings UI, rules
-engine. Add ntfy and webhook as proof the abstraction holds.
-
-**Phase 4 — Hue CLIP v2**
-HTTPS, application key, event stream, groups and scenes. v1 fallback retained.
-
-**Phase 5 — multi-appliance**
-Capability model, per-type descriptors, appliance switcher in the UI, MQTT push
-investigation.
-
-**Phase 6 — ecosystem**
-Home Assistant MQTT discovery, energy tracking, web UI, maintenance reminders.
-
----
-
-## 9. Decisions needed before starting
+Built in one pass rather than staged, so every one of these has to be
+answered up front - there is no later round in which to revisit them.
 
 1. **Daemon identity** — run as the logged-in user (keyring works, needs login)
    or as SYSTEM (needs DPAPI machine-scope)? Recommendation: user.
@@ -425,7 +402,7 @@ Home Assistant MQTT discovery, energy tracking, web UI, maintenance reminders.
 3. **Home Assistant: adapter or replacement?** If HA is going to be installed
    anyway, much of this specification is redundant — HA plus `hon-revived`
    already provides multi-appliance support, every lighting brand, and both voice
-   assistants. **This is worth deciding early**, because the honest answer may be
+   assistants. **Settle this before writing anything**, because the honest answer may be
    that the right architecture is a good HA integration plus a small companion
    app, not a parallel framework.
 4. **Windows only, or cross-platform?** tkinter and the current build are
@@ -433,7 +410,7 @@ Home Assistant MQTT discovery, energy tracking, web UI, maintenance reminders.
 
 ---
 
-## 10. Explicit non-goals
+## 9. Explicit non-goals
 
 - Reimplementing Google Home or Alexa integrations that Haier ships for free
 - Controlling appliances without the manufacturer's safety interlocks
