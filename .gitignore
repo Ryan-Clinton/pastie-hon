@@ -34,3 +34,7 @@ dist/
 # ---- SCRATCH ----
 *.bak
 *.bak2
+
+# experiment venv - not part of the project
+.venv-revived/
+huev2.tmp.json

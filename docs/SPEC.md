@@ -16,8 +16,9 @@ unofficial, community-maintained client.
 released under the MIT licence, which means you may use it commercially if you
 want to — the maintainers simply don't sell it themselves.
 
-Status: **design, revision 5.** A working prototype exists. The full version
-described here is not built yet.
+Status: **design, revision 6.** A working prototype exists; the full version does
+not. The four unknowns that were blocking the build have now been tested against
+real hardware — see section 14. Three answered, one blocked on admin rights.
 
 ---
 
@@ -158,6 +159,13 @@ counts down honestly, about a minute a minute.
 There's a separate field for the **total** cycle length that stays put — use that
 for a progress bar, not the estimate.
 
+### There's a statistics endpoint, separate from live state
+
+Easy to miss, because it isn't in the appliance's live readings and has to be
+asked for separately. It carries the cycle counter, the maintenance schedule and
+usage history — see section 14. Worth knowing it exists before you go looking for
+those things in the wrong place.
+
 ### What's proven, and what isn't
 
 Haier's system covers sixteen appliance types — ovens, hobs, dishwashers,
@@ -203,9 +211,16 @@ wasn't looking, it says so rather than guessing:
 > The dryer finished at some point while Pastie wasn't running.
 > Last seen running at 20:10. Time of completion unknown.
 
-If the machine has a cycle counter we can check, we can be more confident — a
-counter that went up by one is decent evidence of exactly one completed cycle.
-**Whether Haier expose such a counter is not yet known.** Somebody needs to look.
+**There is a cycle counter, and we should use it.** The appliance reports
+`programsCounter` in its statistics. If it went up by one while Pastie was off,
+that's one completed cycle and we can say so plainly rather than hedging. If it
+went up by more, say that instead. If it didn't move, nothing finished — whatever
+the current state looks like.
+
+That turns the honest-gap message from an apology into a fact:
+
+> The dryer finished while Pastie wasn't running (one cycle, some time after
+> 20:10).
 
 **Once announced, never re-announced.** Every alert is written down, so a restart
 can't fire it twice.
@@ -515,21 +530,110 @@ new fields whenever they like.
 
 ---
 
-## 14. Before writing the real thing
+## 14. The four experiments — results
 
-Four things nobody knows the answer to, and each one changes the design.
+These were run against the real dryer and the real Hue bridge on 2026-08-31.
+Three are answered. One is blocked.
 
-1. **Does the appliance report a cycle counter?** Section 6's honest-gap handling
-   depends on it.
-2. **Does the push connection recover properly** after a long disconnection or
-   after credentials expire?
-3. **Can the existing Hue setup be reused**, or does everyone have to press the
-   button on their bridge again? The old key may work as-is. Test it.
-4. **Do the Haier libraries work when run as a Windows service?** They pull in
-   Amazon networking components that are fussy about how they're started. This
-   also settles exactly how credentials get stored.
+### 1. Does the appliance report a cycle counter? — **YES**
 
-After those four, build it in one go.
+It's in a statistics endpoint we hadn't looked at, not in the live state:
+
+```
+statistics.programsCounter   3
+statistics.mostUsedPrograms  [{programName: IOT_DRY_MIXED, count: 3, ...}]
+```
+
+Three completed cycles, with a fourth running at the time — matching the log.
+That's consistent, though it wants one more observation to prove it increments
+exactly once per cycle rather than per-programme-selection.
+
+**This unblocks section 6.** A recovered completion can now be evidenced: if the
+counter went up by one while Pastie was off, that's one cycle finished, and we
+can say so with confidence instead of hedging.
+
+**Same endpoint also gives us maintenance, for free:**
+
+```
+filterCleaning   {tot: 15,  count: 0, remaining: 15,  percentage: 0}
+drumCleaning     {tot: 100, count: 0, remaining: 100, percentage: 0}
+```
+
+The machine reports **its own service schedule and how far through it is** —
+filter every 15 cycles, drum every 100. Section 15 previously demoted maintenance
+reminders because they'd need per-model knowledge nobody has. They don't. The
+appliance tells us. That moves up the list.
+
+### 2. Does MQTT push work? — **YES, connected and subscribed**
+
+```
+Lifecycle Connection Success
+Subscribed: haier/things/<MAC>/event/appliancestatus/update
+            haier/things/<MAC>/event/discovery/update
+            $aws/events/presence/connected/<MAC>
+            $aws/events/presence/disconnected/<MAC>
+```
+
+Three details from the negotiated session that **change the design**:
+
+- **`session_expiry_interval_sec = 0`** — there is no session persistence. A
+  reconnect replays *nothing*. So "full refresh after every reconnect" isn't a
+  precaution, it's the only correct behaviour.
+- **`maximum_qos = AT_LEAST_ONCE`** — duplicates are expected by design, not a
+  fault. Deduplication is mandatory.
+- **The presence topics are a gift.** We're told when the appliance goes offline
+  and comes back, rather than having to infer it from silence.
+
+Two API notes for whoever implements it: `subscribe_updates()` is **not** a
+coroutine — don't await it — and it requires a callback argument.
+
+**Not proven:** recovery after a long disconnection, and behaviour when
+credentials expire mid-cycle. Both need hours of running rather than minutes. The
+library's own release notes say a token-expiry reconnect bug was fixed in 0.19.1,
+which is a reason to watch it rather than assume it.
+
+**Also not observed:** an actual pushed message. The machine was idle for the
+test, so there was nothing to send. Connection and subscription are proven;
+delivery is not yet.
+
+### 3. Can the existing Hue key be reused? — **YES**
+
+```
+GET https://<bridge>/clip/v2/resource/light
+  no key                      → 403
+  v1 username as
+  hue-application-key header  → 200, 9 lights returned
+```
+
+Rooms, scenes and the event stream all return 200 with the same key.
+
+**Nobody has to press the button on their bridge again.** The migration is
+transport and code, not a re-pairing exercise — which removes the most annoying
+part of the upgrade.
+
+A bonus: v2 states outright whether a light supports colour, so the guesswork in
+section 8 ("check before sending a colour") becomes a simple property read
+instead of inferring it from the v1 state shape.
+
+### 4. Do the Haier libraries work as a Windows service? — **BLOCKED**
+
+Needs an elevated session; this one wasn't. Not answered, and **not to be assumed
+either way.**
+
+Partial evidence only: the prototype's notifier already runs as `SYSTEM` and
+works — but it *polls*. It has never run MQTT in a service context, and MQTT is
+what drags in the Amazon networking components that are fussy about how they're
+started.
+
+To finish it, from an elevated prompt: register a scheduled task running as the
+service identity, have it connect MQTT and log the lifecycle events, and confirm
+`Lifecycle Connection Success` appears. Until that's seen, treat service-mode
+MQTT as unverified.
+
+---
+
+Verdict: **build can start.** The one open item only affects how the watcher is
+hosted, not the shape of anything above it.
 
 ---
 
@@ -540,9 +644,9 @@ After those four, build it in one go.
 | Get passwords out of the plain text file | The one thing that's genuinely wrong today |
 | Fix the Cast file server | Section 8 — currently binds everywhere and serves a directory |
 | Fault alerts | The machine reports faults and nobody's told. High value, small job |
-| Move Hue to the current method | The old one stops working on new Philips firmware |
-| Push updates | Removes up to two minutes of delay |
-| Handle restarts properly | Stops false and missed alerts |
+| Move Hue to the current method | The old one stops working on new Philips firmware. Proven not to need re-pairing |
+| Push updates | Removes up to two minutes of delay. Connection and subscription now proven |
+| Handle restarts properly | Stops false and missed alerts. The cycle counter that makes this reliable is confirmed to exist |
 | A second appliance type | Proves the design actually generalises |
 
 **Deliberately later:** energy and cost tracking, delayed starts for cheap-rate
