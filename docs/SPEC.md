@@ -1,705 +1,445 @@
-# Pastie — design specification
+# Pastie — how it works and how to extend it
 
-A resilient, appliance-focused hOn companion: excellent state, notifications and
-diagnostics, with optional Home Assistant integration.
+Pastie tells you what your Haier appliance is doing and lets you do something
+about it — flash a light, announce it on a speaker, start a cycle from your desk.
 
-Status: **proposal, revision 3**. Nothing here is built yet. Written against the
-working prototype at commit `fa259dc`, revised after two rounds of external
-audit.
+This document explains how the thing is put together, what we already know about
+Haier's system that isn't written down anywhere else, and how to add your own
+lights, speakers and appliances to it.
 
-> **Scope note.** This was originally an extensible home-automation framework.
-> That scope competes with Home Assistant and loses. The provider layer — making
-> hOn absurdly reliable — is the part that is genuinely hard and genuinely ours.
+**This is a hobby project.** It's free, it's MIT licensed, nobody is being paid,
+and there are no guarantees. It's also unofficial — Haier have nothing to do with
+it and don't know it exists.
 
----
-
-## 1. The product decision, before anything else
-
-**This gates everything below. Nothing is built until it is settled.**
-
-Two names that must not be confused:
-
-- **`pyhon-revived`** — the Python *library* that talks to hOn
-- **`hon-revived`** — the separate Home Assistant *custom integration*,
-  distributed via HACS, which uses that library
-
-Revision 2 conflated them, which hid the real question: **where does Pastie's
-appliance intelligence execute, and who owns hOn reliability?**
-
-### Three coherent options
-
-**A1 — Pastie as a Home Assistant integration**
-
-```
-hOn → Pastie provider → Home Assistant → Pastie panel / UI
-```
-
-Pastie owns the provider but lives inside HA. HA supplies automation, device
-breadth and voice. Requires HA; competes directly with `hon-revived`.
-
-**A2 — Pastie as a Home Assistant companion**
-
-```
-hOn → pyhon-revived → hon-revived → Home Assistant → Pastie UI / analytics
-```
-
-Pastie **does not own hOn reliability** — `hon-revived` does. Pastie consumes HA
-state and adds appliance-specific UX, analytics and history. Much of §3–§6 of
-this document then belongs to somebody else's project, and should be deleted
-rather than built.
-
-**B — Standalone, with HA as an integration target** *(recommended)*
-
-```
-hOn → Pastie provider → Pastie core ─┬─ UI
-                                     ├─ notifications
-                                     └─ HA adapter (MQTT discovery)
-```
-
-Pastie is useful without anyone installing Home Assistant. HA becomes an output,
-not a foundation. This is the cleanest continuation of the existing prototype and
-the only option under which the rest of this specification is coherent as
-written.
-
-**The remainder of this document assumes B.** If A2 is chosen instead, §3–§6 are
-out of scope and the document shrinks by more than half — which is precisely why
-this decision comes first.
-
-Under B the engineering priority is:
-
-> make hOn absurdly reliable → make appliance state and events excellent →
-> make setup pleasant → integrate outward
-
-Not: support every smart light and voice ecosystem.
+Status: **design, revision 4.** A working prototype exists. The full version
+described here is not built yet.
 
 ---
 
-## 2. Principles
+## 1. What Pastie does
 
-1. **The appliance still works if all this dies.** Never make the machine depend
-   on our software.
-2. **hOn can break overnight without us changing anything.** Design for it.
-3. **Local beats cloud where a choice exists.**
-4. **A command is not done until the device says so.** Cloud acceptance is not
-   confirmation.
-5. **Capability-driven, but not credulous.** Ask the appliance what it exposes;
-   do not assume we understand it.
-6. **One appliance is not all appliances.** A behaviour proven on the tumble
-   dryer is a `TD` fact until proven elsewhere.
-7. **Don't rebuild what a vendor or Home Assistant gives free.**
+You own a Haier appliance with Wi-Fi. It talks to Haier's servers. Haier's phone
+app talks to those same servers. Pastie is a third thing that talks to them, so
+your PC can know what the machine is doing.
 
----
+Once your PC knows, it can do things the phone app won't:
 
-## 3. Risk register
+- Flash a Philips Hue light when the cycle finishes
+- Say "the tumble dryer's finished" through a Google Home speaker
+- Show a proper progress bar on your desktop
+- Start a cycle without walking to the machine
+- Tell you when something's gone wrong, loudly
 
-| Risk | Evidence | Mitigation |
-|---|---|---|
-| hOn API changes without warning | Haier retired the Salesforce auth path in June 2026, moving to CIAM/PKCE and breaking integrations until the library adapted | All hOn specifics behind the provider boundary; explicit `API_INCOMPATIBLE` state; fail loudly |
-| Library is unofficial | `pyhon-revived` describes itself as reverse-engineered and liable to stop working | See supply chain below |
-| Supply chain | 0.19.2 is classified **Development Status :: 4 - Beta**, and neither the wheel nor the sdist was published with Trusted Publishing *(verified against PyPI, 2026-08-31)* | Exact version lock **with artefact hashes**; pin `awsiotsdk` and `awscrt` **together**; run compatibility fixtures before any upgrade; test the **frozen build**, not just the source; SBOM shipped with the installer |
-| Upstream disappears | Single small maintainer team | Keep the provider abstraction good enough to freeze or replace the library without rewriting Pastie. **Do not fork or vendor pre-emptively** — that is a permanent maintenance burden for a hypothetical |
-| Legal / governance | The original project received a takedown complaint from Haier before dialogue reopened | See below — non-commercial status is **not** a mitigation |
-| Cloud dependency | A port scan of the appliance found no local listener; outbound to AWS IoT only | Accept it. Degrade gracefully; never block appliance function |
-| Binary fragility | A `pyhon-revived` release disabled AWS metrics over an `awsiotsdk`/`awscrt` incompatibility | Covered by the pinning rule above |
+The phone app already sends you a notification when a cycle ends. Pastie's point
+isn't notification — it's **doing something across your other kit**.
 
-### Legal posture
+## 2. What Pastie is not
 
-Revision 2 claimed "keep the project non-commercial and interoperability-focused"
-as a mitigation. **That was overconfident** — non-commercial status does not
-remove IP, trademark, contractual or takedown exposure. The actual posture:
-
-- State unofficial, unaffiliated status prominently
-- Do not use Haier trademarks or branding in any way implying affiliation
-- Respect upstream licences (`pyhon-revived` is MIT)
-- Do not redistribute proprietary vendor assets, endpoints or secrets
-- Keep vendor-specific implementation isolated behind the provider
-- Maintain a contingency for upstream library removal
-- Seek legal review before any material commercial distribution
-
-### Provider health — objectively defined
-
-```
-CONNECTED           MQTT live and fresh
-MQTT_DEGRADED       connected but stale; reconciliation is carrying it
-POLLING_FALLBACK    MQTT unavailable, polling only
-AUTH_FAILED         credentials rejected
-API_INCOMPATIBLE    library cannot parse the response - loud failure
-UNREACHABLE         network or cloud down
-```
-
-These must be **derived from metrics, not from provider opinion**:
-
-```
-last_auth_success          last_reconcile_success
-last_mqtt_connect          mqtt_disconnect_count
-last_mqtt_message          consecutive_poll_failures
-last_state_change
-```
-
-`MQTT_DEGRADED` is then a rule, not a judgement call:
-
-```
-MQTT connected
-AND no message or heartbeat within the expected interval
-AND polling still succeeds
-=> MQTT_DEGRADED
-```
-
-**`CONNECTED` does not imply the state is fresh.** Every piece of state carries a
-freshness timestamp, and the UI shows it.
-
-### Insulation
-
-hOn field names — `machMode`, `remoteCtrValid`, `dryLevel`, `prPhase`,
-`dryTimeMM` — **must not leak past the provider**. This is what makes an API
-break a one-module fix. It also means type-specific constants such as
-`machMode 6 == fault` live in the `TD` descriptor, **not** in core logic, until
-proven across types.
-
-### Library
-
-Move from `pyhOn` 0.17.5 to **`pyhon-revived`** (0.19.2), actively maintained,
-carrying the CIAM/PKCE fix, depending on `awsiotsdk>=1.21.0`.
+- **Not a replacement for Home Assistant.** If you already run Home Assistant, it
+  does far more than this ever will. Pastie is for people who want appliance
+  control without installing a whole home-automation platform.
+- **Not a way round safety features.** The machine won't let you start it
+  remotely unless someone has armed it at the panel. We don't try to defeat that,
+  and we won't accept changes that do.
+- **Not official.** It works by imitating Haier's own app. Haier could change
+  something tomorrow and break it.
+- **Not for sale.** Fun, not profit.
 
 ---
 
-## 4. Transport: MQTT primary, polling as reconciliation
+## 3. Decisions already made
 
-**MQTT is primary. Polling is reconciliation, not removed.**
+These are settled. If you disagree, open an issue before writing code, because a
+pull request that assumes otherwise won't merge.
 
-```
-            ┌──── MQTT events ─────┐
-hOn cloud ──┤                      ├──→ raw state reducer
-            └── periodic reconcile ┘            ↓
-                                        normalised state
-                                                ↓
-                                        transition detector
-                                                ↓
-                                          semantic event
-```
-
-Never push-only. Streams disconnect, duplicate, arrive out of order, expire
-credentials, and miss transitions during downtime.
-
-### Connection discipline
-
-- **Reconnect uses exponential backoff with jitter.** A reconnect storm against
-  Haier's cloud during an outage is both rude and self-defeating.
-- **Reconciliation is also backed off** — a full refresh on every reconnect,
-  unthrottled, is a request storm by another name.
-- **Every reconnect triggers a full state refresh**, subject to that backoff.
-- **A slow poll runs regardless**, to repair missed state.
-- A reconciliation discrepancy is a **logged event**, not a silent correction —
-  it is the primary signal that MQTT is unhealthy.
+| Decision | Why |
+|---|---|
+| **Pastie runs on its own.** Home Assistant is optional | Requiring people to install a home-automation platform to get a light to flash is too much to ask |
+| **Windows only, for now** | It's what it's built and tested on. Someone can port it later |
+| **The watcher runs as a Windows service** | The whole point is being told the dryer's finished when you're *not* at the PC. A program that only runs while you're logged in misses that |
+| **Contributions go in the main codebase**, not separate plugin packages | The packaged `.exe` can only include code that existed when it was built, so separate plugins wouldn't work in the version most people download. Send a pull request instead |
+| **MIT licence** | Do what you like with it |
+| **We use `pyhon-revived`** to talk to Haier | It's the maintained version. The older `pyhOn` is behind and missing an important authentication fix |
 
 ---
 
-## 5. State, events and delivery
+## 4. How it fits together
 
-The most dangerous bugs are temporal, not parsing.
-
-```
-raw message  →  normalised state  →  state transition  →  semantic event
-```
-
-### 5.1 Transition rules
-
-| From | To | Emits |
-|---|---|---|
-| `RUNNING` | `FINISHED` | `cycle_finished` |
-| `UNKNOWN` | `FINISHED` | **nothing** — first observation, no evidence of a transition |
-| `FINISHED` | `FINISHED` | nothing |
-| `ERROR` | `ERROR` | nothing — no repeated fault alerts |
-| `RUNNING` | `ERROR` | `fault` |
-| any | `UNKNOWN` | `connection_lost` after a grace period |
-
-`UNKNOWN` is a real modelled state. On startup, on reconnect, and after any gap,
-state begins `UNKNOWN` and the first observation establishes a baseline
-**without emitting**.
-
-### 5.2 Recovered transitions — the downtime gap
-
-Revision 2 had a genuine conflict: §5 said `UNKNOWN → FINISHED` emits nothing,
-while §11 persisted last-known state so a restart has a baseline. Both cannot be
-true without a fifth concept.
-
-The problem:
+Four parts. Each one only talks to its neighbours.
 
 ```
-20:00  RUNNING
-20:10  Pastie stops
-20:40  the dryer actually finishes
-21:00  Pastie starts, cloud says FINISHED
+Haier's servers
+      ↓
+  the connector          ← the only part that knows Haier's field names
+      ↓
+   the brain             ← works out what actually happened
+      ↓
+  the messengers         ← Hue, Google Home, webhooks, whatever you add
+      ↓
+     the app             ← what you look at
 ```
 
-Treat it as `UNKNOWN → FINISHED` and a real completion is missed. Restore
-`RUNNING → FINISHED` from SQLite and announce it, and we are asserting something
-we cannot know — was that one cycle, two, or a manual cancellation?
+### The connector
 
-**A recovered transition is a distinct kind of transition**, and requires
-evidence:
+Talks to Haier. Translates their field names into plain ones.
 
-```
-persisted:  state RUNNING,  cycle_count 175
-on startup: state FINISHED, cycle_count 176
-=> recovered_cycle_finished  (evidence: counter advanced by exactly one)
-```
+**This is the important boundary.** Haier's data is full of things like
+`machMode`, `remoteCtrValid` and `prPhase`. Those names must not appear anywhere
+else in the codebase. When Haier change something — and they will — this is the
+only part that should need fixing.
 
-Where the appliance exposes no counter or session identifier, or the evidence is
-ambiguous, **do not invent the event.** Report the gap honestly instead:
+### The brain
 
-```
-State changed while Pastie was offline.
-  Previous: RUNNING   (last seen 20:10)
-  Current:  FINISHED
-  Completion time unknown.
-```
+Turns "here's what the machine looks like now" into "here's what just happened".
+Section 6 explains why that's harder than it sounds.
 
-A recovered event is marked as such, and notifiers may be configured to treat
-recovered events differently from live ones — announcing "the dryer finished at
-some point while I wasn't looking" is not the same message as "it just finished".
+### The messengers
 
-**Gate 0 must establish whether hOn exposes a usable cycle counter or session
-id.** If it does not, recovered completions are informational only.
+Anything that reacts. A Hue light, a Google Home speaker, a webhook. Section 8 is
+the walkthrough for writing your own.
 
-### 5.3 Delivery semantics
+### The app
 
-Persisting emitted events prevents re-firing on restart, but that is necessary
-rather than sufficient:
-
-```
-1. cycle_finished persisted
-2. webhook sent
-3. webhook succeeds
-4. crash before recording "delivered"
-```
-
-Retry and it may duplicate; don't retry and a crash can lose it. There is no
-exactly-once delivery to arbitrary external systems, so **the semantics must be
-chosen explicitly rather than left to each notifier**.
-
-```
-semantic event
-     ↓
-SQLite transaction
-     ├─ events
-     └─ deliveries
-          ↓
-      dispatcher
-```
-
-```
-event:     id (uuid), type, appliance_id, occurred_at, recovered (bool)
-delivery:  event_id, notifier, destination,
-           status (pending | delivered | failed),
-           attempts, last_attempt, last_error
-```
-
-**Chosen semantics: at-least-once, with deduplication where the receiver
-supports it.**
-
-- Webhooks carry `X-Pastie-Event-Id: <uuid>` so a receiver can be idempotent
-- For lights, speech and toasts, an occasional duplicate after a process crash is
-  an accepted and documented trade-off — a light flashing twice is not a fault
-- Failed deliveries are retried with backoff and surfaced in the UI rather than
-  disappearing into a log
+The window you look at, and the settings screens. It doesn't talk to Haier — it
+asks the service. That way there's only ever one connection to Haier's servers,
+and the app and the service can't disagree about what's happening.
 
 ---
 
-## 6. Command lifecycle
+## 5. What we know about Haier that nobody wrote down
 
-Commands carry a correlation ID and a deadline.
+All of this came from poking a real machine. It cost hours to work out. If you're
+extending Pastie, read it first.
 
-```
-REQUESTED → CLOUD_ACCEPTED → DEVICE_CONFIRMED
-                           ↘ TIMEOUT | REJECTED | STATE_MISMATCH
-```
+### You can't start it remotely unless someone armed it
 
-```
-Start requested        20:41:02
-Cloud accepted         20:41:03
-Appliance RUNNING      20:41:06   ✓ confirmed
-```
+The machine reports a flag we call **"remote allowed"**. If it's off, any attempt
+to start a cycle is refused — by the machine itself, not by us.
 
-versus
+To turn it on, someone has to physically:
 
-```
-Start accepted by hOn but appliance state did not change within 20s
-```
+1. Switch the machine on, and
+2. Turn the programme dial to the **remote** position
 
-The prototype proved why: `stopProgram` returned `True` and the machine did
+And here's the part that catches everyone: **it switches itself off again after
+every completed cycle.** Once per load, someone walks to the machine.
+
+Selecting a normal programme on the dial doesn't arm it — it actively *disarms*
+it. When it is armed, the machine reports "no programme selected", which looks
+broken but is correct: choosing the programme becomes Pastie's job.
+
+This means **remote start can never be unattended**, on any system — ours,
+Haier's own app, or Google Assistant. Don't promise otherwise in the interface.
+
+### "Accepted" doesn't mean "done"
+
+When you send a command, you get a success response. That only means **Haier's
+servers took the message**. It says nothing about whether the machine did
+anything.
+
+We proved this: a stop command returned success while the machine sat there
+ignoring it.
+
+So every command has to be checked by watching the machine's state actually
+change. Never report success off the back of the response alone.
+
+### The time remaining is a liar, at first
+
+Early in a cycle the machine is still working out how wet the load is. During
+that period the estimate jumps around and can go **up**. Later it settles and
+counts down honestly, about a minute a minute.
+
+There's a separate field for the **total** cycle length that stays put — use that
+for a progress bar, not the estimate.
+
+### What's proven, and what isn't
+
+Everything above was measured on **one tumble dryer**. Haier's system covers
+sixteen appliance types — ovens, hobs, dishwashers, fridges and so on. We own a
+dryer.
+
+So: **don't assume any of this applies to other appliances.** Especially the
+arming rule. If an oven turns out not to need arming, that's remote start with
+nobody in the room, and the safety story is completely different.
+
+---
+
+## 6. Why "the dryer finished" is harder than it looks
+
+The obvious approach — *if the machine says finished, announce it* — is wrong,
+and gets it wrong in both directions.
+
+**The false alarm.** Pastie starts up. The machine says "finished". Was that just
+now, or three days ago? Announce it and you're shouting about a load that was put
+away on Tuesday.
+
+**The miss.** The dryer was running. The PC rebooted. While it was off, the cycle
+finished. Pastie comes back and sees "finished" — a real completion, and it says
 nothing.
 
----
-
-## 7. Appliance model
-
-### 7.1 Properties and commands are different things
-
-Revision 2 used a single `Capability` for both, which forced awkward constructs
-like `kind="readonly"`. They have different semantics and are modelled
-separately.
-
-```python
-@dataclass
-class PropertyDescriptor:
-    key: str
-    label: str
-    type: Literal["number", "enum", "bool", "duration", "timestamp"]
-    unit: str | None
-    values: dict | None          # enum mapping
-    minimum: float | None
-    maximum: float | None
-    freshness_required: timedelta | None
-
-
-@dataclass
-class CommandDescriptor:
-    key: str
-    label: str
-    parameters: list[ParameterDescriptor]
-
-    # preconditions - declarative, never ad hoc code
-    requires_remote_arm: bool
-    requires_idle: bool
-    requires_door_closed: bool
-
-    # verification
-    api_writable: bool           # the API claims this is writable
-    verified: bool               # WE have confirmed we understand it
-    experimental: bool
-    verification_predicate: str | None   # what proves DEVICE_CONFIRMED
-    timeout: timedelta
-```
-
-### 7.2 Verification tiers
-
-**`api_writable` and `verified` are not the same thing.** Only the tumble dryer
-is validated; fifteen other types are not.
-
-An unverified appliance type gets:
+So Pastie tracks four separate things:
 
 ```
-state discovery    yes
-telemetry          yes
-unknown fields     visible, diagnostically
-commands           READ ONLY
+what the machine sent us
+        ↓
+what state it's in now        (running, finished, faulted, unknown)
+        ↓
+what changed                  (it was running, now it's finished)
+        ↓
+what that means               ("the cycle finished")
 ```
 
-until command semantics are confirmed against real hardware. "Capability-driven"
-must never become "expose whatever a reverse-engineered API advertises" — on an
-oven or an induction hob that is a safety question, not a UX one.
+**"Unknown" is a real state.** When Pastie starts, or loses its connection, it
+doesn't know anything yet. The first thing it sees sets a baseline and announces
+nothing. That kills the false alarm.
 
-Type descriptors (`descriptors/TD.yaml` and so on) carry the mappings. Every
-descriptor except `TD` ships marked **unverified**.
+**Gaps get reported honestly.** If Pastie was off and something changed while it
+wasn't looking, it says so rather than guessing:
 
-Known types: `AC` air conditioner, `AP` air purifier, `AS` air scanner, `DW`
-dishwasher, `FRE` freezer, `HO` hood, `IH` induction hob, `MW` microwave, `OV`
-oven, `REF` fridge, `RVC` robot vacuum, `TD` tumble dryer, `WC` wine cellar,
-`WD` washer-dryer, `WH` water heater, `WM` washing machine.
+> The dryer finished at some point while Pastie wasn't running.
+> Last seen running at 20:10. Time of completion unknown.
 
-### 7.3 What is actually proven
+If the machine has a cycle counter we can check, we can be more confident — a
+counter that went up by one is decent evidence of exactly one completed cycle.
+**Whether Haier expose such a counter is not yet known.** Somebody needs to look.
 
-**Validated `TD` behaviour, from the prototype machine only:**
+**Once announced, never re-announced.** Every alert is written down, so a restart
+can't fire it twice.
 
-- Remote start requires `remoteCtrValid == 1`, which needs the machine powered on
-  *and* the dial physically on the remote position
-- Remote control **disarms itself after a completed cycle**
-- `machMode 6` indicates a fault
-- `dryTimeMM` is a stable total; `remainingTimeMM` is unreliable early in a cycle
-
-**None of this is established for other appliance types.** An oven, washer,
-dishwasher or water heater must be verified independently before the same safety
-model is assumed. This matters most for the arming interlock: if another type
-does *not* require arming, remote start is unattended, and that changes the
-safety story entirely.
+**Nothing important is announced twice, but a light might flash twice.** If
+Pastie crashes at exactly the wrong moment it may not have recorded that it
+already flashed the light. We accept that. A light flashing twice is not a
+problem worth engineering away. Anything sent to another system carries a unique
+ID so the receiver can ignore a repeat if it cares.
 
 ---
 
-## 8. Security
+## 7. Talking to it faster
 
-### 8.1 Local IPC — named pipe with an explicit DACL
+The prototype asks Haier "what's happening?" every two minutes. That means alerts
+can be two minutes late.
 
-An unauthenticated REST API on `127.0.0.1` **must not ship** for an interface
-exposing commands and configuration. Loopback is not a trust boundary; a
-malicious web page can reach poorly protected localhost services, which is why
-browsers are adding local-network access prompts.
+Haier's system can also **push** updates the moment something changes, using
+their messaging system. The library we use supports it.
 
-**Default: a Windows named pipe.**
+**The plan: use push as the main route, and keep asking periodically as a
+backstop.** Push connections drop, duplicate messages, deliver them out of order,
+and go quiet without saying so. Never trust push alone.
 
-```
-Desktop UI ──named pipe (explicit DACL)──→ Pastie agent
-```
+Rules:
 
-**Hard requirement, not an implementation detail:**
-
-> **Never create the Pastie pipe with a NULL or default security descriptor.**
-
-A pipe created with no explicit security descriptor gets a default ACL that
-grants full control to SYSTEM, administrators and the creator — and **read access
-to Everyone and to anonymous users**. The DACL must be constructed explicitly:
-
-- **Per-user deployment** — the current logon SID, plus administrators if
-  genuinely required
-- **Service deployment** — `NT SERVICE\Pastie`, plus the authorised interactive
-  user's SID
-- Use the **logon SID** where access should be confined to the current terminal
-  session
-
-If REST is later wanted for CLI, HA or web clients, the protection is designed in
-from the start, never retrofitted: authentication on every state-changing
-request, strict `Origin` and `Host` validation, separate read and write scopes,
-explicit API versioning. The phone-friendly LAN web UI sits behind that model and
-is deferred until it exists.
-
-### 8.2 Service identity
-
-**`LocalSystem` is rejected** — nothing here needs SYSTEM privileges.
-
-Machine-scope DPAPI is **withdrawn**: data protected with
-`CRYPTPROTECT_LOCAL_MACHINE` can be decrypted by *any user account on that
-machine*, which is a substantial downgrade from per-user protection. Revision 2
-described it as "encrypted at rest and machine-bound", which was misleading.
-
-The GUI never touches the secret store:
-
-```
-Pastie UI ──authenticated IPC──→ Pastie agent ──→ secret store (agent identity)
-```
-
-The UI sends *set this credential*; the agent stores it under its own identity.
-This removes the supposed conflict between service identity and credential
-management entirely.
-
-**The two candidates for Gate 0:**
-
-| | Option 1 — per-user app | Option 2 — Windows service |
-|---|---|---|
-| Identity | interactive user | **virtual service account** `NT SERVICE\Pastie` |
-| Secrets | `keyring` → Credential Manager | service-owned store, ACL'd to the service SID |
-| Password management | n/a | **none** — virtual accounts are managed automatically |
-| Runs when logged out | **no** | yes |
-| Install complexity | low | higher |
-
-Revision 2 described Option 2 vaguely as a "dedicated low-privilege service
-identity", implying a local account with a password to manage. It should be a
-**virtual service account**, which Windows manages automatically, with a service
-SID used to ACL files and the IPC pipe specifically to that service.
-
-**Likely outcome: the service wins**, because the entire point is being told an
-appliance has finished when you are *not* sitting at the PC — and dryers and
-dishwashers routinely run overnight. But Gate 0 must first prove that
-`pyhon-revived` and `awscrt` behave correctly in a service context before
-committing.
-
-**Implementation note:** `keyring` offers get/set/delete but no reliable
-cross-platform enumeration. `list_providers()` reads Pastie's own configuration,
-never the keyring.
-
-### 8.3 Alert safety
-
-Hue's developer terms place responsibility on applications not to create light
-combinations that could adversely affect health, and to warn where appropriate.
-
-- **Defaults:** fault → solid or gentle pulse; finished → colour change or
-  limited flash
-- **Bounded** rate and duration, enforced centrally, not per-notifier
-- Rules cannot generate unlimited strobing
+- After any reconnection, ask for the full picture again. Don't assume you didn't
+  miss anything.
+- Wait longer between retries each time a connection fails, so we're not
+  hammering Haier's servers during an outage.
+- If the periodic check disagrees with what push told us, **that's worth
+  logging** — it's the main clue that push has gone quiet.
+- Show the user when Pastie is degraded. Silently falling back to slow checking is
+  how a two-minute delay becomes invisible.
 
 ---
 
-## 9. Philips Hue
+## 8. Adding a light, a speaker, or anything else
 
-Transport and API generation are **separate migrations**.
+This is the bit most people will want. A "messenger" is anything Pastie can poke
+when something happens.
 
-```
-Current:          CLIP API v1 over HTTP  (obsolete transport)
-Required first:   HTTPS / TLS
-Preferred:        CLIP API v2, for the resource model and event stream
-```
+Everything a messenger must be able to do:
 
-Terminology, used consistently: **CLIP API v1/v2** is the API generation;
-**bridge hardware generation** is the physical device.
-
-| | CLIP v1 | CLIP v2 |
-|---|---|---|
-| Auth | username in URL path | `hue-application-key` header |
-| Updates | poll | server-sent events at `/eventstream/clip/v2` |
-| Addressing | integer ids | stable UUIDs |
-| Rooms, zones, scenes | limited | first-class |
-
-- **Do not assume self-signed certificates.** Current Hue documentation
-  references Signify-signed bridge certificates. Use a verification strategy that
-  supports the current model rather than inventing "disable verification except
-  pin the bridge ID" logic.
-- **Re-pairing may not be required.** An existing v1 username can reportedly
-  serve as the v2 application key. **Test against the real bridge in Gate 0.**
-
----
-
-## 10. Voice assistants
-
-**Do not build bespoke Alexa or Google infrastructure.** Haier ships official
-integrations for both. A bespoke Alexa Smart Home skill needs an AWS Lambda
-function, an OAuth 2.0 authorisation server and account linking, for
-functionality the vendor already provides.
-
-- **hOn does provide proactive notifications** — end-of-cycle and maintenance
-  alerts to the phone. The honest differentiator:
-
-  > hOn already provides proactive phone notifications; Pastie provides richer
-  > cross-device actions — lights, speaker announcements, local automation.
-
-- **Home Assistant does not make voice free of external infrastructure.** HA
-  Cloud is the easy path; manual Google and Alexa setup still require
-  cloud-facing configuration, and Alexa's manual route involves AWS Lambda. HA
-  **centralises and substantially simplifies** it.
-
-If voice is wanted, expose Pastie to Home Assistant via MQTT discovery rather
-than integrating with assistants directly.
-
-### Constraint (validated on `TD` only)
-
-The tested dryer enforces `remoteCtrValid` in firmware, and no integration —
-ours, Haier's or anyone's — can start a cycle it has not had armed at the panel.
-It also disarms after every completed cycle. **Whether other appliance types
-share this model is unverified.** Where it applies, every voice feature is
-semi-attended by design and must be documented as such.
-
----
-
-## 11. Persistence
-
-**SQLite**, holding:
-
-- Last-known appliance state and its freshness timestamp
-- Cycle counter or session id, where available, for recovered-transition evidence
-- Emitted events, with a `recovered` flag
-- Delivery records (§5.3)
-- Appliance metadata and capability cache
-- Rules
-- Schema version, with migrations
-
-Secrets never go in SQLite.
-
----
-
-## 12. Extensibility — deliberately conservative
-
-Python entry points conflict with PyInstaller distribution: a frozen application
-imports what existed at build time, and dynamically discovered plugins need
-explicit hooks or must be present at freeze time. A Python plugin also executes
-arbitrary third-party code with Pastie's permissions — there is no sandbox — and
-a plugin API means a versioned SDK and a compatibility contract.
-
-**Decision: defer third-party Python plugins.** Built-in adapters plus **webhook
-and MQTT** give enormous extensibility at a fraction of the support and security
-cost. Internally, notifiers still share a common interface — that is code
-organisation, not a public contract.
-
----
-
-## 13. Testing
-
-Fixtures are **sequences, not single responses**.
-
-```
-startup while idle
-startup mid-cycle                          (must NOT emit)
-startup after downtime, cycle completed    (recovered transition)
-startup after downtime, counter ambiguous  (must NOT invent an event)
-idle -> running -> finished
-running -> error
-running -> disconnect -> finished -> reconnect
-duplicate MQTT event
-out-of-order MQTT event
-credential expires mid-cycle
-daemon restarts mid-cycle
-command accepted by cloud, device never changes
-reconciliation disagrees with last MQTT state
-delivery succeeds but crash precedes the delivered record
-```
-
-Tests assert on **emitted semantic events and delivery records**, not on parsed
-fields.
-
-### Anonymisation: allowlist, not blacklist
-
-Fixtures are generated from an **allowlist of fields known safe to retain**.
-Blacklisting cannot anticipate every email, account id, appliance id, token,
-Wi-Fi identifier, nickname, endpoint or new field Haier may add.
-
----
-
-## 14. Feature priorities
-
-| Feature | Priority | Note |
-|---|---|---|
-| **Fault alerting** | **High** | Currently only reaches a log. High value, low cost |
-| Energy and cost per cycle | Medium | Counters already exposed |
-| Maintenance reminders | Low | Needs **verified per-model** schedules; generic rules are wrong |
-| Cheap-rate delayed start | Low | Interacts with arming, model-specific delay semantics, DST and cloud interruption. Do not build merely because `delayTime` accepts a number |
-| Phone web UI | Deferred | Until the authentication model exists |
-
----
-
-## 15. Validation gates
-
-De-risking spikes, not delivery phases. The build can still be one pass *after*
-they resolve.
-
-> **Author's note:** this reverses the earlier "build in one pass" instruction.
-> Retained because the audit endorsed it and because these resolve facts that
-> cannot be known from design alone. **Still yours to overrule.**
-
-| Gate | What must be proved |
+| What | Why |
 |---|---|
-| **0 — Spikes** | §1 product boundary; MQTT reconnect and backoff behaviour; whether hOn exposes a **cycle counter or session id** (§5.2 depends on it); whether the Hue v1 key works as a v2 application key; whether `pyhon-revived` and `awscrt` behave correctly **as a service** |
-| **1 — Reliable TD agent** | One appliance: MQTT plus reconciliation, normalised state, command lifecycle |
-| **2 — Event correctness** | Restart, reconnect, duplicate, out-of-order, recovered transitions, delivery records |
-| **3 — Multi-appliance** | A genuinely different second appliance proves the descriptor abstraction |
-| **4 — Integration boundary** | HA, webhook or native notifiers, driven by actual unmet need |
-| **5 — Packaging** | Installer signing, virtual service account provisioning, upgrade and migration, SBOM, security review |
+| **Describe its settings** | So the settings screen can draw itself. You don't write any interface code |
+| **Find things** | List the lights, speakers or devices available |
+| **Test** | Fire once on demand, so the user can check it works |
+| **React** | Do the thing when an event happens |
+
+Write one file, put it in the messengers folder, send a pull request. If it's
+sensible it goes in the next release.
+
+**Ideas that would be genuinely useful:** LIFX, WiZ and Nanoleaf lights (all
+talk directly over your network, no accounts needed), phone notifications through
+ntfy or Telegram, a plain Windows desktop notification, or a webhook so people
+can wire it into anything at all.
+
+### Rules for messengers
+
+- **Don't assume every light does colour.** Plenty are white-only, and sending
+  them a colour makes them fail. Check first, and pulse the brightness instead.
+- **Put the light back how you found it.** Save its state, do your thing, restore
+  it. Nobody wants their lamp stuck green at midnight.
+- **Don't strobe.** Flashing lights can trigger seizures in people with
+  photosensitive epilepsy. Philips's own developer terms make this the
+  application's responsibility. Pastie caps how fast and how long anything can
+  flash, centrally, and no messenger may go round that.
+- **Never write a password, key or token to a log.**
 
 ---
 
-## 16. Decisions required
+## 9. Adding an appliance type
 
-1. **§1 — A1, A2, or B?** Everything else follows. B assumed here.
-2. **Service identity** — per-user with `keyring`, or Windows service under a
-   virtual service account? **Not `LocalSystem`.**
-3. **Local IPC** — named pipe (default), or authenticated REST because other
-   clients are genuinely wanted?
-4. **Windows only, or cross-platform?**
-5. **Do the validation gates stand, or is this one pass?**
+Haier's system covers sixteen kinds of appliance. Pastie has been tested on one.
+
+Adding another means writing a description file listing what its numbers mean —
+"machine mode 2 means running", "dryness level 14 means ready to wear", and so
+on.
+
+**Two different questions, which people confuse:**
+
+```
+Does Haier's data say this setting can be changed?
+Have WE actually checked that we understand what changing it does?
+```
+
+Those are not the same, and the gap between them is a safety issue.
+
+So an appliance type nobody has verified gets:
+
+- **Reading: yes.** Show its state, show its progress, alert on faults.
+- **Writing: no.** Commands are disabled until someone with that appliance has
+  tested them.
+
+Guessing what a number means on a dryer wastes a load of washing. Guessing on an
+oven or an induction hob is a different matter entirely. If you have one of these
+appliances and are willing to test it properly, that's one of the most useful
+contributions you could make.
 
 ---
 
-## 17. Non-goals
+## 10. Passwords and security
 
-- Reimplementing Google Home or Alexa integrations Haier ships free
-- Native LIFX, WiZ, Tuya or Nanoleaf support without demonstrated need
-- Third-party Python plugins in the first release
-- Becoming a general-purpose home-automation hub
-- Controlling appliances around manufacturer safety interlocks
-- Unauthenticated network interfaces of any kind
-- Forking or vendoring `pyhon-revived` pre-emptively
-- Cloud hosting, user accounts, or telemetry beyond opt-in crash reports
+Other people will run this on their own machines, so this matters more than it
+would for a personal script.
+
+**Passwords don't go in files.** The prototype keeps your Haier login in a plain
+text file. The real version puts it in Windows' own password store, which is
+encrypted and tied to your account.
+
+**The window never touches the password store.** You type your password into the
+app; the app hands it to the background service; the service saves it. That way
+the two parts can run as different users without a problem.
+
+**The app and service talk over a private Windows channel**, not a web address.
+A web page open in your browser can reach programs listening on your own PC — it's
+a real attack, and it's why browsers are adding warnings about it. A private
+channel can't be reached that way at all.
+
+**One trap for whoever implements that channel:** if you create it without
+explicitly saying who's allowed to use it, Windows gives *everyone* — including
+anonymous users — read access by default. It has to be locked down deliberately.
+
+**The service does not run as the all-powerful system account.** It doesn't need
+that, and things that don't need power shouldn't have it.
 
 ---
 
-## Appendix — provenance
+## 11. Things that will break, and what to do about it
 
-Findings cited here were measured against **one** real appliance during the
-prototype session, not inferred: the `remoteCtrValid` gate and its per-cycle
-expiry, the `machMode` values, `.send()` returning `True` without device action,
-`dryTimeMM` versus `remainingTimeMM`, and the appliance having no local listener.
+Pastie depends on a reverse-engineered library that imitates Haier's app. This is
+not stable ground, and the design should assume it.
 
-The `prPhase` 15/19 inversion versus the community mapping is an observation from
-repeated cycles on one machine and is provisional until seen on another.
+| What could happen | Has it happened? | What we do |
+|---|---|---|
+| Haier change how logging in works | **Yes — June 2026.** Everything broke until the library caught up | Keep all Haier-specific code in the connector, so it's one file to fix |
+| The library gets abandoned | Not yet. It's a small team | Keep the connector boundary clean enough that it could be swapped out |
+| A library update breaks something | Yes, twice | Pin exact versions. Test the packaged `.exe`, not just the code |
+| Haier object to the project existing | The original project got a legal complaint before things were patched up | See below |
 
-PyPI metadata for `pyhon-revived` 0.19.2 (Beta classifier, no Trusted Publishing,
-MIT licence) was verified directly on 2026-08-31.
+### Staying out of trouble
 
-Everything concerning other appliance types is unverified by definition — we own
-one appliance.
+Being free and non-commercial does **not** make you legally untouchable, and the
+spec previously implied otherwise. What actually helps:
+
+- Say clearly and prominently that this is unofficial and unaffiliated
+- Don't use Haier's logos or branding, or anything implying they endorse it
+- Respect the licences of the code we build on
+- Don't republish anything of Haier's — their assets, their internal addresses,
+  their keys
+- Keep all of it isolated behind the connector, so it could be removed cleanly
+- If this ever stops being a hobby, take proper advice first
+
+### When something breaks, say so
+
+Pastie should always be able to tell you which of these it is:
+
+```
+Working normally
+Working, but updates are slow
+Can't log in — check your password
+Can't understand Haier's response — something changed, needs a fix
+Can't reach the internet
+```
+
+"It's not working" is a useless error message. Each of those needs a different
+response from the user.
+
+---
+
+## 12. Rules for contributions
+
+- **The appliance must work without Pastie.** Never do anything that leaves
+  someone's washing machine dependent on our software.
+- **Never work around a safety interlock.** If the machine won't do something
+  without someone present, that's the design, not a bug.
+- **Keep Haier's field names in the connector.** If `machMode` appears in the
+  interface code, that's a rejected pull request.
+- **A command isn't done until the machine says so.** Don't report success off a
+  server response.
+- **Don't guess what a number means on hardware you don't own.**
+- **No unprotected network interfaces.** Nothing that listens for connections
+  without checking who's asking.
+- **New appliance types start read-only** until someone verifies them.
+
+---
+
+## 13. Before writing the real thing
+
+Four things nobody knows the answer to, and each one changes the design. They're
+quick to check and worth checking first.
+
+1. **Does the appliance report a cycle counter?** Section 6's honest-gap handling
+   depends on it. Without one, "it finished while you were out" can only ever be
+   informational.
+2. **Does the push connection recover properly** after being disconnected for a
+   long time, or after credentials expire?
+3. **Can the existing Hue setup be reused**, or does everyone have to press the
+   button on their bridge again? The old key may work as-is. Test it.
+4. **Do the Haier libraries work when run as a Windows service?** They pull in
+   Amazon networking components that are fussy about how they're started.
+
+After those four, build it in one go.
+
+---
+
+## 14. First jobs, roughly in order
+
+| Job | Why it's high on the list |
+|---|---|
+| Get passwords out of the plain text file | It's the one thing that's genuinely wrong today |
+| Fault alerts | The machine reports faults and currently nobody's told. High value, small job |
+| Move Hue to the current method | The old one stops working on new Philips firmware |
+| Push updates | Removes up to two minutes of delay |
+| Handle restarts properly | Stops false and missed alerts |
+| A second appliance type | Proves the design actually generalises |
+
+**Deliberately later:** energy and cost tracking, delayed starts for cheap-rate
+electricity, maintenance reminders, and a phone-friendly web page. All nice; none
+urgent. Cheap-rate scheduling in particular is fiddlier than it looks once you
+account for arming, clock changes and dropped connections.
+
+---
+
+## Appendix — where these facts came from
+
+Everything in section 5 was measured against one real machine, a Haier
+HD90-A2959R-UK tumble dryer, during the prototype work. It was not inferred or
+looked up.
+
+One observation is flagged as **unconfirmed**: the phase numbers this machine
+reports appear to be the opposite way round from the community's shared mapping —
+what everyone lists as "drying" behaves like the early sensing stage here, and
+vice versa. That's from repeated cycles on one machine. If you have an HD90 and
+see the same thing, please say so in an issue; that's how it gets confirmed or
+corrected.
+
+The library details were checked directly against its public listing on
+2026-08-31.
