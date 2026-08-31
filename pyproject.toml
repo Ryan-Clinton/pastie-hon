@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pastie"
+version = "0.1.0"
+description = "Appliance companion for Haier hOn appliances - state, alerts and control"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"          # PyChromecast needs 3.11+
+keywords = ["haier", "hon", "appliance", "tumble-dryer", "hue", "chromecast"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Home Automation",
+]
+
+# Exact pins, deliberately. Two people cloning a month apart must get the same
+# software - otherwise "works on mine" means nothing, and an upstream change to
+# a reverse-engineered client is impossible to distinguish from our own bug.
+#
+# awsiotsdk and awscrt are pinned TOGETHER on purpose: a mismatched pair has
+# already broken pyhon-revived once.
+dependencies = [
+    "pyhon-revived==0.19.2",
+    "awsiotsdk==1.31.0",
+    "awscrt==0.36.1",
+    "pychromecast==14.0.7",
+    "gTTS==2.5.4",
+    "pillow==11.3.0",
+    "keyring==25.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.4.2",
+    "pytest-asyncio==1.2.0",
+    "pyinstaller==6.22.2",
+    "pip-licenses==5.0.0",     # generates THIRD_PARTY_NOTICES.txt
+]
+
+[project.urls]
+Source = "https://github.com/REPLACE-ME/pastie"
+Issues = "https://github.com/REPLACE-ME/pastie/issues"
+
+[tool.setuptools]
+py-modules = [
+    "discover", "status", "probe", "start", "notify",
+    "hue", "speak", "dryer_gui", "allattrs", "rate", "trystop",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

@@ -9,12 +9,18 @@ isn't documented anywhere. It'll save you hours.
 
 ## Getting set up
 
+Python 3.11 or newer (PyChromecast needs it).
+
 ```
 git clone <this repo>
 cd pastie
 python -m venv .venv
-.venv\Scripts\pip install pyhon-revived pychromecast gTTS pillow
+.venv\Scripts\pip install -e .[dev]
 ```
+
+Dependencies and their exact versions live in `pyproject.toml`. Please don't
+`pip install` things ad hoc — if two of us clone this a month apart we need to be
+running the same software, or "works on mine" becomes meaningless.
 
 Copy `.credentials.example` to `.credentials` and fill in your Haier login.
 Then check it can see your appliance:
@@ -60,12 +66,15 @@ Please do:
 
 Please don't:
 
-- **Work around a safety interlock.** The machine refuses remote start unless
-  someone armed it at the panel. That's deliberate, it's enforced in the
-  appliance's own firmware, and we're not interested in defeating it.
-- **Enable commands for an appliance type nobody has verified.** Reading state is
-  fine. Sending commands to hardware nobody has tested is how you set an oven to
-  something unexpected.
+- **Work around a safety interlock.** On the dryer we've tested, remote start is
+  refused unless someone armed it at the panel, and it disarms again after every
+  cycle. Other appliances may differ — but the rule is universal: **Pastie never
+  bypasses or weakens a safety interlock an appliance exposes.**
+- **Interpret an unverified appliance's numbers.** An untested type gets its raw
+  values shown as diagnostics and nothing more — no "running", no "finished", no
+  fault alerts, no commands. If a new oven reports mode 6, we don't announce a
+  fault just because that's what 6 means on a dryer. Verification is per-mapping:
+  confirm what one value means, mark that one verified, leave the rest raw.
 - **Add strobing or rapid flashing.** Flashing lights can trigger seizures in
   people with photosensitive epilepsy. Pastie limits flash rate and duration
   centrally — don't add anything that bypasses it.
@@ -89,9 +98,13 @@ being complicated too.
 
 ## Reporting a security problem
 
-Open an issue, but don't include a working exploit or your own credentials. If
-it's serious enough that you'd rather not post it publicly, say so in the issue
-and we'll find another way.
+**Not in a public issue.** See [SECURITY.md](SECURITY.md) — use GitHub's private
+vulnerability reporting under the Security tab.
+
+## Licensing your contribution
+
+By opening a pull request you agree to license your contribution under the
+project's MIT licence. No paperwork beyond that.
 
 ## Code of conduct
 
