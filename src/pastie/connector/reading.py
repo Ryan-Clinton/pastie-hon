@@ -99,7 +99,7 @@ def translate(reading: RawReading, profile: Profile) -> Snapshot:
         observed_at=reading.observed_at,
         state=state,
         trust=profile.trust,
-        name=reading.nickname or profile.label,
+        name=_name(reading, profile),
         model=reading.model,
         programme=profile.programme_for(reading.programme_name),
         remaining=remaining,
@@ -113,6 +113,19 @@ def translate(reading: RawReading, profile: Profile) -> Snapshot:
         maintenance=_maintenance(reading.statistics),
         raw=_diagnostics(reading, profile),
     )
+
+
+def _name(reading: RawReading, profile: Profile) -> str:
+    """What to call the appliance in a sentence.
+
+    Whatever the owner named it, unless they never named it - hOn then hands
+    back the model number, and "The HD90-A2959R-UK has finished" is a worse
+    sentence than "The tumble dryer has finished".
+    """
+    nickname = (reading.nickname or "").strip()
+    if not nickname or nickname.casefold() == reading.model.strip().casefold():
+        return profile.label
+    return nickname
 
 
 def _fault(reading: RawReading, profile: Profile, state: ApplianceState) -> str | None:

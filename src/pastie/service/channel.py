@@ -54,7 +54,8 @@ def _security_attributes() -> Any:
     """A SECURITY_ATTRIBUTES that names exactly who may use the pipe."""
     import win32security
 
-    descriptor = win32security.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+    # pywin32 exposes this without the W suffix the Win32 documentation uses.
+    descriptor = win32security.ConvertStringSecurityDescriptorToSecurityDescriptor(
         SECURITY_DESCRIPTOR, win32security.SDDL_REVISION_1
     )
     attributes = win32security.SECURITY_ATTRIBUTES()

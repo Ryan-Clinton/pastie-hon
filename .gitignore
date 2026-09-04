@@ -46,4 +46,3 @@ huev2.tmp.json
 .mypy_cache/
 .coverage
 htmlcov/
-THIRD_PARTY_NOTICES.txt

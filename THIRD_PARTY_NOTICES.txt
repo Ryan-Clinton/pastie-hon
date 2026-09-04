@@ -1,0 +1,144 @@
+THIRD PARTY NOTICES
+===================
+
+Pastie is distributed with the third-party software listed below. Each remains
+under its own licence and its own copyright. This file is generated from the
+installed dependency set by scripts/third_party_notices.py - do not edit it by
+hand.
+
+Licences that ask for more than attribution - Apache-2.0 in particular - require
+their full text and any NOTICE file to be shipped alongside the binary. Where a
+package below is Apache-2.0, its LICENSE and NOTICE files are included in the
+distribution.
+
+Generated: 2026-09-04
+
+
+aiohappyeyeballs 2.7.1
+    Licence : Python Software Foundation License
+    Author  : J. Nick Koston
+    Home    : https://github.com/aio-libs/aiohappyeyeballs
+
+aiohttp 3.14.3
+    Licence : Apache-2.0 AND MIT
+    Home    : https://github.com/aio-libs/aiohttp
+
+aiosignal 1.4.0
+    Licence : Apache Software License
+    Home    : https://github.com/aio-libs/aiosignal
+
+attrs 26.1.0
+    Licence : UNKNOWN
+    Author  : Hynek Schlawack <hs@ox.cx>
+    Home    : https://www.attrs.org/en/stable/changelog.html
+
+awscrt 0.36.1
+    Licence : Apache-2.0
+    Author  : "Amazon Web Services, Inc" <aws-sdk-common-runtime@amazon.com>
+
+awsiotsdk 1.31.0
+    Licence : Apache Software License
+    Author  : AWS SDK Common Runtime Team
+    Home    : https://github.com/aws/aws-iot-device-sdk-python-v2
+
+casttube 0.2.1
+    Licence : MIT
+    Author  : Uri Katz
+    Home    : http://github.com/ur1katz/casttube
+
+certifi 2026.7.22
+    Licence : Mozilla Public License 2.0 (MPL 2.0)
+    Author  : Kenneth Reitz
+    Home    : https://github.com/certifi/python-certifi
+
+charset-normalizer 3.5.1
+    Licence : MIT
+    Author  : "Ahmed R. TAHRI" <tahri.ahmed@proton.me>
+    Home    : https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md
+
+click 8.1.8
+    Licence : BSD License
+    Home    : https://github.com/pallets/click/
+
+colorama 0.4.6
+    Licence : BSD License
+    Author  : Jonathan Hartley <tartley@tartley.com>
+    Home    : https://github.com/tartley/colorama
+
+frozenlist 1.8.0
+    Licence : Apache-2.0
+    Home    : https://github.com/aio-libs/frozenlist
+
+gTTS 2.5.4
+    Licence : MIT License
+    Author  : Pierre Nicolas Durette <pndurette@gmail.com>
+    Home    : https://github.com/pndurette/gTTS
+
+idna 3.19
+    Licence : UNKNOWN
+    Author  : Kim Davies <kim+pypi@gumleaf.org>
+    Home    : https://github.com/kjd/idna
+
+ifaddr 0.2.0
+    Licence : MIT License
+    Author  : Stefan C. Mueller
+    Home    : https://github.com/pydron/ifaddr
+
+multidict 6.7.1
+    Licence : Apache License 2.0
+    Author  : Andrew Svetlov
+    Home    : https://github.com/aio-libs/multidict
+
+pillow 11.3.0
+    Licence : UNKNOWN
+    Author  : "Jeffrey A. Clark" <aclark@aclark.net>
+    Home    : https://python-pillow.github.io
+
+propcache 0.5.2
+    Licence : Apache Software License
+    Author  : Andrew Svetlov
+    Home    : https://github.com/aio-libs/propcache
+
+protobuf 7.36.1
+    Licence : 3-Clause BSD License
+    Author  : protobuf@googlegroups.com
+    Home    : https://developers.google.com/protocol-buffers/
+
+PyChromecast 14.0.7
+    Licence : MIT License
+    Author  : Paulus Schoutsen <paulus@paulusschoutsen.nl>
+    Home    : https://github.com/home-assistant-libs/pychromecast
+
+pyhon-revived 0.19.2
+    Licence : MIT
+    Author  : Andre Basche, Michał Małolepszy
+
+pywin32 312
+    Licence : Python Software Foundation License
+    Author  : Mark Hammond (et al)
+    Home    : https://github.com/mhammond/pywin32
+
+requests 2.34.2
+    Licence : Apache Software License
+    Author  : Kenneth Reitz <me@kennethreitz.org>
+    Home    : https://github.com/psf/requests
+
+typing_extensions 4.16.0
+    Licence : UNKNOWN
+    Author  : "Guido van Rossum, Jukka Lehtosalo, Łukasz Langa, Michael Lee" <levkivskyi@gmail.com>
+    Home    : https://github.com/python/typing_extensions
+
+urllib3 2.7.0
+    Licence : UNKNOWN
+    Author  : Andrey Petrov <andrey.petrov@shazow.net>
+    Home    : https://github.com/urllib3/urllib3/blob/main/CHANGES.rst
+
+yarl 1.24.5
+    Licence : Apache-2.0
+    Author  : Andrew Svetlov
+    Home    : https://github.com/aio-libs/yarl
+
+zeroconf 0.151.3
+    Licence : UNKNOWN
+    Author  : The python-zeroconf authors
+    Home    : https://github.com/python-zeroconf/python-zeroconf

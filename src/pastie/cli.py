@@ -12,14 +12,20 @@ import asyncio
 import getpass
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 from pastie import __version__
 from pastie.app.client import ServiceClient, ServiceUnavailableError
 from pastie.service import main as service_main
-from pastie.service import paths
+from pastie.service import migrate, paths
 from pastie.service.channel import PipeClient
-from pastie.service.secrets import Credentials, SecretStore, SecretsUnavailableError
+from pastie.service.config import SettingsStore
+from pastie.service.secrets import (
+    Credentials,
+    SecretStore,
+    SecretsUnavailableError,
+)
 
 
 def _client() -> ServiceClient:
@@ -66,6 +72,34 @@ def cmd_login(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_migrate(args: argparse.Namespace) -> int:
+    """Bring a prototype folder's account and alert settings across."""
+    folder = Path(args.folder)
+    settings = SettingsStore(paths.settings_file())
+    try:
+        migration = migrate.apply(folder, _secrets(), settings)
+    except SecretsUnavailableError as error:
+        print(str(error))
+        return 2
+
+    if not migration.anything:
+        print(f"Nothing to bring across from {folder}.")
+        return 1
+
+    if migration.account:
+        print(f"Account {migration.account} saved, encrypted.")
+    for name in sorted(migration.messengers):
+        print(f"{name} settings brought across.")
+    for note in migration.notes:
+        print(f"\n  note: {note}")
+    if (folder / ".credentials").exists():
+        print(
+            f"\nYour password is now encrypted. {folder / '.credentials'} still has it in "
+            "plain text - delete it when you are happy this works."
+        )
+    return 0
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     """Ask the running service what the appliance is doing."""
     try:
@@ -81,7 +115,8 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(status.get("health_message", ""))
     for appliance in status.get("appliances", []):
         print()
-        print(f"{str(appliance.get('name', 'appliance')).title()}  ({appliance.get('model', '')})")
+        name = str(appliance.get("name", "appliance"))
+        print(f"{name[:1].upper()}{name[1:]}  ({appliance.get('model', '')})")
         print(f"  state       {appliance.get('state')}")
         if appliance.get("trust") != "verified":
             print("              (unverified appliance type - raw readings only)")
@@ -149,6 +184,14 @@ def build_parser() -> argparse.ArgumentParser:
     login = commands.add_parser("login", help="save the hOn account, encrypted")
     login.add_argument("--username", help="the account's email address")
     login.set_defaults(handler=cmd_login)
+
+    bring = commands.add_parser(
+        "migrate", help="bring an old prototype folder's account and settings across"
+    )
+    bring.add_argument(
+        "--folder", default="prototype", help="where the prototype's .credentials lives"
+    )
+    bring.set_defaults(handler=cmd_migrate)
 
     status = commands.add_parser("status", help="what the appliance is doing")
     status.add_argument("--json", action="store_true", help="print the reply as JSON")

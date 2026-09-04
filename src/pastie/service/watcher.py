@@ -184,7 +184,13 @@ class Watcher:
     # ------------------------------------------------------------ the loop
 
     async def run(self, stop: asyncio.Event) -> None:
-        """Watch until asked to stop. Reconnects on its own."""
+        """Watch until asked to stop. Reconnects on its own.
+
+        The connection is closed on the way out of every attempt, successful or
+        not. Leaving it open leaks the client's HTTP session, which shows up as
+        "Unclosed client session" at exit and, less visibly, as a socket per
+        reconnect on a machine that has been up for a week.
+        """
         failures = 0
         while not stop.is_set():
             try:
@@ -198,6 +204,14 @@ class Watcher:
                 self.connection_dropped()
                 await self._sleep(_BACKOFF[min(failures, len(_BACKOFF) - 1)])
                 failures += 1
+            finally:
+                await self._close_quietly()
+
+    async def _close_quietly(self) -> None:
+        try:
+            await self._connector.close()
+        except Exception as error:  # noqa: BLE001 - tidying up must not raise
+            log.debug("ignored while closing the connection: %s", error)
 
     async def _connect_and_watch(self, stop: asyncio.Event) -> None:
         await self._connector.connect()
@@ -255,6 +269,9 @@ class Watcher:
             snapshot = translate(reading, self._connector.profile(reading.appliance_id))
             self._snapshots[snapshot.appliance_id] = snapshot
             self._commands.observe(snapshot)
+            log.debug(
+                "%s is %s (%s)", snapshot.name, snapshot.state.value, snapshot.display_remaining()
+            )
             events.extend(self._tracker.observe(snapshot))
 
         for event in events:

@@ -429,3 +429,72 @@ def test_the_service_never_offers_a_way_to_read_a_password_back() -> None:
 
     assert "account.set" in service.dispatcher.actions
     assert not any(action.startswith("account.get") for action in service.dispatcher.actions)
+
+
+# ---------------------------------------------------------------- migrating
+
+
+def test_a_prototype_folder_is_brought_across(tmp_path: Path) -> None:
+    """Nobody should have to find their Hue key a second time."""
+    from pastie.service import migrate
+
+    folder = tmp_path / "prototype"
+    folder.mkdir()
+    (folder / ".credentials").write_text(
+        "# the prototype's file\nuser=someone@example.com\npassword=hunter2\n"
+        "hue_bridge=192.168.1.2\nhue_key=abc123\n",
+        encoding="utf-8",
+    )
+    (folder / "hue_alert.json").write_text(
+        json.dumps(
+            {
+                "light": 12,
+                "colour": "Green",
+                "seconds": 18,
+                "speak_enabled": True,
+                "speak_device": "Living Room speaker",
+                "speak_text": "Tumble dryer finished.",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (folder / "cast_hosts.json").write_text(
+        json.dumps({"Living Room speaker": "192.168.1.50"}), encoding="utf-8"
+    )
+
+    secrets = SecretStore(tmp_path / "account.json")
+    settings = SettingsStore(tmp_path / "settings.json")
+    result = migrate.apply(folder, secrets, settings)
+
+    assert secrets.load() == Credentials("someone@example.com", "hunter2")
+    saved = settings.load()
+    assert saved.messenger("hue")["address"] == "192.168.1.2"
+    assert saved.messenger("hue")["key"] == "abc123"
+    assert saved.messenger("cast")["address"] == "192.168.1.50"
+    assert saved.messenger("cast")["text"] == "Tumble dryer finished."
+    # A v1 light number means nothing to v2, so it is not silently carried over.
+    assert saved.messenger("hue")["light"] == ""
+    assert any("pick it again" in note for note in result.notes)
+
+
+def test_migrating_an_empty_folder_does_nothing_and_says_so(tmp_path: Path) -> None:
+    from pastie.service import migrate
+
+    result = migrate.apply(
+        tmp_path, SecretStore(tmp_path / "account.json"), SettingsStore(tmp_path / "s.json")
+    )
+    assert not result.anything
+
+
+def test_the_prototype_credentials_file_is_left_alone(tmp_path: Path) -> None:
+    """Deleting somebody's credentials file for them is not our decision."""
+    from pastie.service import migrate
+
+    folder = tmp_path / "prototype"
+    folder.mkdir()
+    original = "user=someone@example.com\npassword=hunter2\n"
+    (folder / ".credentials").write_text(original, encoding="utf-8")
+
+    migrate.apply(folder, SecretStore(tmp_path / "a.json"), SettingsStore(tmp_path / "s.json"))
+
+    assert (folder / ".credentials").read_text(encoding="utf-8") == original

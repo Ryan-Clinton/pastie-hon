@@ -1,0 +1,74 @@
+name: CI
+
+# Pastie ships as a packaged .exe for Windows, so Windows is the platform that
+# matters. Linux is in the matrix anyway: the domain layer is meant to be plain
+# Python with no Windows in it, and a Linux run is what proves that stays true.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: ruff
+        run: |
+          ruff check .
+          ruff format --check src tests scripts
+      - name: mypy
+        run: mypy
+
+  test:
+    name: tests (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: pytest
+        run: pytest -q --cov=pastie --cov-report=term-missing
+
+  notices:
+    name: third-party notices
+    # Windows, because the notices describe what is in the Windows .exe - and
+    # the dependency set differs by platform, so checking them anywhere else
+    # would compare against a distribution nobody ships.
+    #
+    # The packaged .exe carries other people's code, and their licences require
+    # their notices to travel with it. Generated from the pinned dependencies
+    # rather than maintained by hand, because a hand-written one goes stale the
+    # first time somebody adds a dependency.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: python scripts/third_party_notices.py --check

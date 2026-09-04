@@ -16,9 +16,13 @@ unofficial, community-maintained client.
 released under the MIT licence, which means you may use it commercially if you
 want to — the maintainers simply don't sell it themselves.
 
-Status: **design, revision 6.** A working prototype exists; the full version does
-not. The four unknowns that were blocking the build have now been tested against
-real hardware — see section 14. Three answered, one blocked on admin rights.
+Status: **built, revision 7.** This document described a design; that design now
+exists in `src/pastie`, and this revision marks what was built, what changed on
+contact with reality, and what is still open. The four experiments in section 14
+are what unblocked it — three answered, one still blocked on admin rights.
+
+Where this document and the code disagree, the code is right and this is a bug.
+Section 16 lists what actually got built.
 
 ---
 
@@ -637,22 +641,63 @@ hosted, not the shape of anything above it.
 
 ---
 
-## 15. First jobs, roughly in order
+## 15. First jobs — what happened to them
 
-| Job | Why it's high on the list |
+| Job | Where it got to |
 |---|---|
-| Get passwords out of the plain text file | The one thing that's genuinely wrong today |
-| Fix the Cast file server | Section 8 — currently binds everywhere and serves a directory |
-| Fault alerts | The machine reports faults and nobody's told. High value, small job |
-| Move Hue to the current method | The old one stops working on new Philips firmware. Proven not to need re-pairing |
-| Push updates | Removes up to two minutes of delay. Connection and subscription now proven |
-| Handle restarts properly | Stops false and missed alerts. The cycle counter that makes this reliable is confirmed to exist |
-| A second appliance type | Proves the design actually generalises |
+| Get passwords out of the plain text file | **Done.** DPAPI, under the service's identity: `service/secrets.py` |
+| Fix the Cast file server | **Done.** One file, in memory, unguessable path, bound to the LAN address, gone when the announcement ends: `messengers/fileserve.py` |
+| Fault alerts | **Done**, and only for verified appliance types |
+| Move Hue to the current method | **Done.** v2, and the existing key still works, so nobody re-pairs |
+| Push updates | **Done.** Connected and subscribed against the real appliance; an actual pushed message is still unobserved, because the machine was idle |
+| Handle restarts properly | **Done.** Gaps are reported as gaps and keyed on the cycle counter |
+| A second appliance type | **Not done**, and it needs somebody who owns one. Everything is in place for it: adding a type is a `Profile` in `connector/profiles.py` |
+| Maintenance reminders | **Done**, and they were nearly free — the appliance reports its own service schedule |
 
-**Deliberately later:** energy and cost tracking, delayed starts for cheap-rate
-electricity, maintenance reminders, and a phone-friendly web page. Cheap-rate
-scheduling in particular is fiddlier than it looks once you account for arming,
-clock changes and dropped connections.
+**Deliberately still later:** energy and cost tracking, delayed starts for
+cheap-rate electricity, and a phone-friendly web page. Cheap-rate scheduling in
+particular is fiddlier than it looks once you account for arming, clock changes
+and dropped connections.
+
+---
+
+## 16. What was built, and what it taught us
+
+The design above survived contact with the code. Four things changed or were
+learned in the building, and they are the parts worth knowing about.
+
+**Verification is a property of a mapping, and it needed a home.** Section 9
+said so; in the code it is `Profile.states_verified`, and the flag genuinely
+does the work — an unverified appliance's state comes out as UNKNOWN, which the
+tracker then declines to interpret, which means no alerts and no commands
+without a single special case anywhere else.
+
+**"Time remaining" needed a rule, not a field.** Section 5 says the estimate
+lies early on. The rule the code uses is that a remaining time above the
+programme's fixed total is still being guessed at, and is shown as "about 40 min
+(still estimating)". Outside a running cycle there is no remaining time at all:
+the machine reports the selected programme's nominal length there, and
+presenting that as a countdown would put a number on something that is not
+happening.
+
+**The appliance's own name is usually its model number.** hOn hands back
+"HD90-A2959R-UK" when nobody has renamed it, and "The HD90-A2959R-UK has
+finished" is a worse sentence than "The tumble dryer has finished". The
+connector substitutes the profile's label when the two match.
+
+**Two bugs were found by running it rather than by reading it**, which is the
+argument for section 13's insistence on recorded sequences having limits:
+
+- The settings document was cached after its first read, so a change made in the
+  app would not have applied until a restart.
+- The client's HTTP session was left open on disconnect, leaking one per
+  reconnect. It showed up as "Unclosed client session" the first time the
+  service was stopped.
+
+**Still unproven, and honestly so:** an actual pushed MQTT message (the machine
+was idle throughout), recovery after a long disconnection, behaviour when
+credentials expire mid-cycle, and the Windows service question from experiment
+4. All four need hours of running rather than minutes.
 
 ---
 

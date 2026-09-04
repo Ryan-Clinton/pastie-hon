@@ -509,7 +509,8 @@ class App(tk.Tk):
 
         appliance = appliances[0]
         self._appliance = str(appliance.get("id"))
-        self.name_label.configure(text=str(appliance.get("name", "appliance")).title())
+        name = str(appliance.get("name", "appliance"))
+        self.name_label.configure(text=f"{name[:1].upper()}{name[1:]}")
         self.model_label.configure(text=str(appliance.get("model", "")))
 
         state = str(appliance.get("state", "unknown"))
