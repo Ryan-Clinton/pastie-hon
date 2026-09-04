@@ -119,7 +119,10 @@ def register_handlers(service: Service, registry: Any) -> None:
         if messenger is None:
             return Reply.failed("no such messenger")
         result = await messenger.test(settings.load().messenger(messenger.name))
-        return Reply.worked(ok=result.ok, detail=result.detail)
+        # Named `worked` rather than `ok`: the reply already carries an `ok` for
+        # "the service handled your request", and a messenger failing is not the
+        # same thing as the request failing.
+        return Reply.worked(worked=result.ok, detail=result.detail)
 
     async def messenger_discover(arguments: dict[str, Any]) -> Reply:
         messenger = registry.get(str(arguments.get("name", "")))

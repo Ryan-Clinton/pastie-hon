@@ -83,9 +83,15 @@ class ApplianceStatus:
     cycle_count: int | None = None
     maintenance: list[dict[str, Any]] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
+    #: What this appliance can be asked to do, and with what - sent from here so
+    #: the window never has to hold a list of Haier's programme identifiers.
+    programmes: list[dict[str, str]] = field(default_factory=list)
+    dry_levels: list[dict[str, str]] = field(default_factory=list)
+    temperatures: list[dict[str, str]] = field(default_factory=list)
+    commands: list[str] = field(default_factory=list)
 
     @classmethod
-    def of(cls, snapshot: Snapshot) -> ApplianceStatus:
+    def of(cls, snapshot: Snapshot, profile: Profile | None = None) -> ApplianceStatus:
         return cls(
             id=snapshot.appliance_id,
             name=snapshot.name,
@@ -110,6 +116,12 @@ class ApplianceStatus:
                 for item in snapshot.maintenance
             ],
             raw=dict(snapshot.raw),
+            programmes=_choices(profile.programmes if profile else {}),
+            dry_levels=_choices(profile.dry_levels if profile else {}),
+            temperatures=_choices(profile.temperatures if profile else {}),
+            # An unverified appliance offers no commands at all, whatever Haier's
+            # data claims is available on it.
+            commands=sorted(profile.commands) if profile and profile.states_verified else [],
         )
 
 
@@ -131,6 +143,14 @@ class Status:
             "recent": self.recent,
             "command": self.command,
         }
+
+
+def _choices(mapping: Mapping[str, str]) -> list[dict[str, str]]:
+    """A mapping as an ordered list the window can put straight into a dropdown."""
+    seen: dict[str, str] = {}
+    for value, label in mapping.items():
+        seen.setdefault(label, value)
+    return [{"id": value, "label": label} for label, value in sorted(seen.items())]
 
 
 class Watcher:
@@ -291,7 +311,10 @@ class Watcher:
         return Status(
             health=report.state.value,
             health_message=report.message,
-            appliances=[ApplianceStatus.of(snapshot) for snapshot in self._snapshots.values()],
+            appliances=[
+                ApplianceStatus.of(snapshot, self._connector.profile(appliance_id))
+                for appliance_id, snapshot in self._snapshots.items()
+            ],
             recent=[
                 {
                     "kind": event.kind.value,

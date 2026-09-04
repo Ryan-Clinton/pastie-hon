@@ -105,6 +105,7 @@ select = [
     "TID",         # tidy imports
     "ARG",         # unused arguments
     "PTH",         # use pathlib
+    "SLF",         # private member access
     "RUF",
 ]
 ignore = [
