@@ -1,0 +1,16 @@
+# Normalise line endings in the repository, so a Windows checkout and a Linux
+# CI runner see the same file. Without this, every file committed from Windows
+# arrives on the runner with CRLF and diffs become unreadable.
+* text=auto eol=lf
+
+# Windows-only files people run by double-clicking, and Windows tooling that
+# cares: keep CRLF in the working tree.
+*.ps1   text eol=crlf
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# Binary, never touched.
+*.ico   binary
+*.jpg   binary
+*.png   binary
+*.mp3   binary

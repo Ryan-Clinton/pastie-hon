@@ -115,6 +115,26 @@ Rendered speech is now cached by content hash, taking a repeat announcement to
 about 9 seconds, most of which is the message playing. The cache is warmed in the
 background as you type, so changing the message doesn't cost you the render.
 
+## Searching the build history
+
+Most of what is known about this dryer was worked out in conversation, and the
+reasoning behind a decision is often only in the transcript. `scripts/history_search.py`
+searches this project's Claude Code transcripts:
+
+```
+python scripts\history_search.py "remote control"
+python scripts\history_search.py "machMode" --role all --context 200
+powershell -File scripts\ms.ps1 history search "dial"      # same thing
+```
+
+It searches the live transcript directory *and* an archive copy, and prints the
+date window it actually covered — so "no matches" can be told apart from "that
+session has been pruned". `scripts/claude-transcript-archive.ps1` keeps the
+archive fed; it mirrors and never deletes. Neither script sends anything anywhere,
+and the transcripts themselves live outside the repo.
+
+Ported from the `ms history search` command in another project of mine.
+
 ## Licence
 
 MIT. Do what you like with it.

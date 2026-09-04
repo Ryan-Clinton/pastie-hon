@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pastie"
-version = "0.1.0"
+version = "0.2.0"
 description = "Appliance companion for Haier hOn appliances - state, alerts and control"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -34,27 +34,109 @@ dependencies = [
     "pychromecast==14.0.7",
     "gTTS==2.5.4",
     "pillow==11.3.0",
-    "keyring==25.6.0",
+    "pywin32==312 ; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest==8.4.2",
     "pytest-asyncio==1.2.0",
+    "pytest-cov==7.0.0",
+    "ruff==0.16.6",
+    "mypy==2.3.1",
     "pyinstaller==6.22.2",
     "pip-licenses==5.0.0",     # generates THIRD_PARTY_NOTICES.txt
 ]
+
+[project.scripts]
+pastie = "pastie.cli:main"
+
+[project.gui-scripts]
+pastie-app = "pastie.app.main:main"
 
 [project.urls]
 Source = "https://github.com/REPLACE-ME/pastie"
 Issues = "https://github.com/REPLACE-ME/pastie/issues"
 
-[tool.setuptools]
-py-modules = [
-    "discover", "status", "probe", "start", "notify",
-    "hue", "speak", "dryer_gui", "allattrs", "rate", "trystop",
-]
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pastie = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+addopts = "--strict-markers --strict-config"
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["pastie"]
+branch = true
+
+[tool.coverage.report]
+# The domain layer is the part that has to be right; the Windows- and
+# network-facing edges are exercised by hand against real hardware.
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py311"
+# The prototype is kept verbatim as the record of what was actually measured
+# against the hardware. It is history, not code we maintain to this standard.
+extend-exclude = ["prototype"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",      # pycodestyle
+    "F",           # pyflakes
+    "I",           # import sorting
+    "N",           # pep8-naming
+    "UP",          # pyupgrade
+    "B",           # bugbear
+    "A",           # builtin shadowing
+    "C4",          # comprehensions
+    "DTZ",         # naive datetimes - this project is all about time
+    "PT",          # pytest style
+    "RET",         # return simplification
+    "SIM",         # simplify
+    "TID",         # tidy imports
+    "ARG",         # unused arguments
+    "PTH",         # use pathlib
+    "RUF",
+]
+ignore = [
+    "RUF012",      # mutable class attrs need ClassVar - noisy for plain config holders
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG001", "ARG002"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+exclude = "^prototype/"
+
+[[tool.mypy.overrides]]
+# Third-party clients without type information. Every one of them is behind an
+# adapter in this codebase, which is the point of the connector boundary.
+module = [
+    "pyhon.*",
+    "pychromecast.*",
+    "gtts.*",
+    "win32api",
+    "win32crypt",
+    "win32file",
+    "win32pipe",
+    "win32security",
+    "winerror",
+    "pywintypes",
+    "ntsecuritycon",
+]
+ignore_missing_imports = true

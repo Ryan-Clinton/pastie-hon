@@ -38,3 +38,12 @@ dist/
 # experiment venv - not part of the project
 .venv-revived/
 huev2.tmp.json
+
+# ---- PACKAGING ----
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+THIRD_PARTY_NOTICES.txt
