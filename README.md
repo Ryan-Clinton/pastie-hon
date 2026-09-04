@@ -247,7 +247,7 @@ notifications, and a plain Windows desktop notification.
 
 ```powershell
 pip install -e ".[dev]"
-pytest          # 131 tests, no appliance required
+pytest          # 153 tests, no appliance required
 ruff check .
 mypy
 ```

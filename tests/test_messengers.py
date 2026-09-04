@@ -8,10 +8,13 @@ fail if they did.
 from __future__ import annotations
 
 import asyncio
+import json
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
 from datetime import timedelta
+from email.message import Message
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -26,9 +29,10 @@ from pastie.messengers.base import (
     redact,
     sample_event,
 )
+from pastie.messengers.cast import CastMessenger, SpeechCache, SpeechError
 from pastie.messengers.fileserve import ServedFile
 from pastie.messengers.flash import MAX_SECONDS, TargetLocks, plan
-from pastie.messengers.hue import COLOURS, HueMessenger, supports_colour
+from pastie.messengers.hue import COLOURS, Bridge, HueError, HueMessenger, supports_colour
 from pastie.messengers.webhook import WebhookMessenger
 
 
@@ -377,3 +381,155 @@ def test_every_messenger_describes_its_settings_for_the_screen_to_draw() -> None
         assert settings, f"{messenger.name} describes nothing"
         assert all(isinstance(setting.kind, Kind) for setting in settings)
         assert settings[0].key == "enabled"
+
+
+# ------------------------------------------------------- the bridge itself
+
+
+class FakeResponse:
+    def __init__(self, body: dict[str, Any]) -> None:
+        self._body = json.dumps(body).encode()
+
+    def read(self) -> bytes:
+        return self._body
+
+    def __enter__(self) -> FakeResponse:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+
+def test_a_rejected_key_is_reported_as_a_rejected_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """403 means the key, not the network. They need different answers."""
+
+    def refuse(*_a: Any, **_k: Any) -> None:
+        raise urllib.error.HTTPError("https://bridge", 403, "Forbidden", Message(), None)
+
+    monkeypatch.setattr(urllib.request, "urlopen", refuse)
+    with pytest.raises(HueError, match="rejected the application key"):
+        Bridge("192.168.1.2", "key").lights()
+
+
+def test_a_bridge_that_is_not_there_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    def unreachable(*_a: Any, **_k: Any) -> None:
+        raise urllib.error.URLError("no route to host")
+
+    monkeypatch.setattr(urllib.request, "urlopen", unreachable)
+    with pytest.raises(HueError, match="could not reach the bridge"):
+        Bridge("192.168.1.2", "key").lights()
+
+
+def test_a_bridge_needs_both_an_address_and_a_key() -> None:
+    with pytest.raises(HueError, match="both required"):
+        Bridge("", "")
+
+
+def test_the_key_goes_in_the_header_the_v2_api_wants(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A v1 username in this header is what makes the migration free."""
+    seen: dict[str, Any] = {}
+
+    def capture(request: Any, **_k: Any) -> FakeResponse:
+        seen["url"] = request.full_url
+        seen["headers"] = dict(request.headers)
+        return FakeResponse({"data": [{"id": "light-1"}]})
+
+    monkeypatch.setattr(urllib.request, "urlopen", capture)
+    assert Bridge("192.168.1.2", "abc123").lights() == [{"id": "light-1"}]
+    assert seen["url"] == "https://192.168.1.2/clip/v2/resource/light"
+    assert seen["headers"]["Hue-application-key"] == "abc123"
+
+
+# ---------------------------------------------------------------- webhook
+
+
+async def test_a_webhook_reports_the_status_code_it_was_given() -> None:
+    def refuse(*_a: Any) -> int:
+        raise urllib.error.HTTPError("https://example.invalid", 500, "boom", Message(), None)
+
+    result = await WebhookMessenger(post=refuse).react(
+        sample_event(), {"url": "https://example.invalid/hook"}
+    )
+    assert not result.ok
+    assert "500" in result.detail
+
+
+async def test_a_webhook_has_nothing_to_discover() -> None:
+    assert await WebhookMessenger().discover({}) == []
+
+
+# -------------------------------------------------------------- speech
+
+
+def test_speech_is_rendered_once_and_then_cached(tmp_path: Path) -> None:
+    """The render is ~20 seconds and the message rarely changes."""
+    renders: list[str] = []
+
+    def render(text: str) -> bytes:
+        renders.append(text)
+        return b"audio for " + text.encode()
+
+    cache = SpeechCache(tmp_path, renderer=render)
+    assert not cache.cached("Dryer done.")
+    assert cache.audio("Dryer done.") == b"audio for Dryer done."
+    assert cache.audio("Dryer done.") == b"audio for Dryer done."
+
+    assert renders == ["Dryer done."]
+    assert cache.cached("Dryer done.")
+
+
+def test_a_different_phrase_is_a_different_recording(tmp_path: Path) -> None:
+    cache = SpeechCache(tmp_path, renderer=lambda text: text.encode())
+    assert cache.audio("one") != cache.audio("two")
+
+
+def test_speech_that_renders_to_nothing_is_an_error_not_silence(tmp_path: Path) -> None:
+    cache = SpeechCache(tmp_path, renderer=lambda _text: b"")
+    with pytest.raises(SpeechError):
+        cache.audio("Dryer done.")
+
+
+def test_warming_the_cache_never_raises(tmp_path: Path) -> None:
+    """It runs while somebody types in a settings box; it must not interrupt them."""
+
+    def broken(_text: str) -> bytes:
+        raise RuntimeError("the speech service moved")
+
+    messenger = CastMessenger(SpeechCache(tmp_path, renderer=broken))
+    assert messenger.warm("Dryer done.") is False
+
+
+def test_warming_the_cache_reports_success(tmp_path: Path) -> None:
+    messenger = CastMessenger(SpeechCache(tmp_path, renderer=lambda text: text.encode()))
+    assert messenger.warm("Dryer done.") is True
+
+
+async def test_an_announcement_with_no_speaker_chosen_says_so(tmp_path: Path) -> None:
+    messenger = CastMessenger(SpeechCache(tmp_path, renderer=lambda text: text.encode()))
+    result = await messenger.react(sample_event(), {})
+    assert not result.ok
+    assert result.detail == "no speaker chosen"
+
+
+async def test_a_speaker_that_cannot_be_reached_is_reported(tmp_path: Path) -> None:
+    messenger = CastMessenger(
+        SpeechCache(tmp_path, renderer=lambda text: text.encode()),
+        connect=lambda _name, _address: None,
+    )
+    result = await messenger.react(sample_event(), {"device": "Kitchen speaker"})
+    assert not result.ok
+    assert "could not reach 'Kitchen speaker'" in result.detail
+
+
+# ------------------------------------------------------------- registry
+
+
+def test_the_registry_holds_every_messenger_this_build_knows_about(tmp_path: Path) -> None:
+    from pastie.messengers import build_registry
+
+    registry = build_registry(SpeechCache(tmp_path))
+
+    assert {messenger.name for messenger in registry} == {"hue", "cast", "webhook"}
+    assert registry.get("hue") is not None
+    assert registry.get("nothing-like-this") is None
+    assert len(registry) == 3

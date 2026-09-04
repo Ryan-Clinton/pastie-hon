@@ -41,7 +41,7 @@ is kept in `prototype/` as the record of what was measured against the hardware.
   bridge button.
 - **Maintenance reminders** — the appliance reports its own service schedule
   (filter every 15 cycles, drum every 100), so no per-model knowledge is needed.
-- 131 tests, CI on Windows and Linux across Python 3.11 and 3.12, ruff and mypy
+- 153 tests, CI on Windows and Linux across Python 3.11 and 3.12, ruff and mypy
   (strict) clean, and generated third-party notices.
 
 ### Changed

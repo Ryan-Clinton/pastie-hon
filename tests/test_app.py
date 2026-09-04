@@ -162,7 +162,7 @@ def test_a_password_goes_in_and_nothing_comes_back_out(
     assert has_account
     assert "hunter2" not in json.dumps(values)
     with pytest.raises(ServiceUnavailableError):
-        client._ask("account.get")  # noqa: SLF001 - proving there is no such thing
+        client._ask("account.get")
 
 
 def test_an_incomplete_account_is_refused_with_a_sentence(client: ServiceClient) -> None:

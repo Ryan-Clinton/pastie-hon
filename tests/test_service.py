@@ -498,3 +498,36 @@ def test_the_prototype_credentials_file_is_left_alone(tmp_path: Path) -> None:
     migrate.apply(folder, SecretStore(tmp_path / "a.json"), SettingsStore(tmp_path / "s.json"))
 
     assert (folder / ".credentials").read_text(encoding="utf-8") == original
+
+
+# ------------------------------------------------------------------- paths
+
+
+def test_the_service_and_the_app_keep_their_files_apart(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The service does not run as you, so its files cannot live in your profile."""
+    from pastie.service import paths
+
+    monkeypatch.delenv("PASTIE_DATA_DIR", raising=False)
+    monkeypatch.setenv("PROGRAMDATA", str(tmp_path / "machine"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "user"))
+
+    assert paths.service_dir() == tmp_path / "machine" / "Pastie"
+    assert paths.app_dir() == tmp_path / "user" / "Pastie"
+    assert paths.settings_file().parent == paths.service_dir()
+    assert paths.memory_file().parent == paths.service_dir()
+    assert paths.ledger_file().parent == paths.service_dir()
+
+
+def test_one_environment_variable_moves_everything(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Which is how the tests, and a portable copy on a memory stick, both work."""
+    from pastie.service import paths
+
+    monkeypatch.setenv("PASTIE_DATA_DIR", str(tmp_path / "anywhere"))
+
+    assert paths.service_dir() == tmp_path / "anywhere"
+    assert paths.app_dir() == tmp_path / "anywhere" / "user"
+    assert paths.log_file() == tmp_path / "anywhere" / "pastie.log"

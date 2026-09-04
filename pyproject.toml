@@ -113,7 +113,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG001", "ARG002"]
+# Unused arguments are how a test stands in for an interface; and a test of a
+# window is a test of what its private methods put on the screen.
+"tests/*" = ["ARG001", "ARG002", "SLF001"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "parents"
