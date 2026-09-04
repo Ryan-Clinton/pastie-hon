@@ -165,8 +165,8 @@ web page in your browser could reach.
 Windows, Python 3.11 or newer.
 
 ```powershell
-git clone https://github.com/REPLACE-ME/pastie
-cd pastie
+git clone https://github.com/Ryan-Clinton/pastie-hon
+cd pastie-hon
 python -m venv .venv
 .venv\Scripts\pip install -e .
 

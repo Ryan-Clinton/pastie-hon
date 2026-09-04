@@ -55,8 +55,9 @@ pastie = "pastie.cli:main"
 pastie-app = "pastie.app.main:main"
 
 [project.urls]
-Source = "https://github.com/REPLACE-ME/pastie"
-Issues = "https://github.com/REPLACE-ME/pastie/issues"
+Source = "https://github.com/Ryan-Clinton/pastie-hon"
+Issues = "https://github.com/Ryan-Clinton/pastie-hon/issues"
+Changelog = "https://github.com/Ryan-Clinton/pastie-hon/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
