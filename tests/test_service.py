@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -330,7 +331,14 @@ def test_a_password_survives_being_saved_and_read_back(tmp_path: Path) -> None:
     assert loaded == Credentials("someone@example.com", "hunter2")
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="DPAPI is the thing being tested")
 def test_the_password_is_not_readable_in_the_file(tmp_path: Path) -> None:
+    """The property that makes a stolen copy of the file useless.
+
+    Windows only on purpose: elsewhere the store falls back to its plaintext
+    development path, which is honest about being plaintext, and asserting that
+    a password is unreadable there would be asserting something false.
+    """
     path = tmp_path / "account.json"
     SecretStore(path).save(Credentials("someone@example.com", "hunter2"))
 

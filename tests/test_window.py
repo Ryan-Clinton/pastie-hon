@@ -12,7 +12,6 @@ Skipped where there is no display, which is most Linux CI runners.
 from __future__ import annotations
 
 import time
-import tkinter
 from collections.abc import Callable
 from typing import Any
 
@@ -20,6 +19,12 @@ import pytest
 
 from pastie.app.client import ServiceClient
 from pastie.service.protocol import Reply
+
+# Not a plain import: tkinter is missing on plenty of Linux installations, and a
+# missing module at the top of a test file is a collection error - which stops
+# the whole suite rather than skipping one file of it. GitHub's runners happen
+# to ship tkinter, so this only bites somebody who clones the repo.
+tkinter = pytest.importorskip("tkinter", reason="tkinter is not installed")
 
 
 def _has_display() -> bool:
