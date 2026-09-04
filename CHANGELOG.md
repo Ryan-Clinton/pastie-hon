@@ -6,6 +6,39 @@ released anything — nothing has been released yet.
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- **`pastie demo`** — replays recorded readings through the real connector, the
+  real brain and the real command tracker, with no appliance, no hOn account and
+  no network. Five scenarios, each one a case that is easy to get wrong: a
+  watched cycle, a completion nobody saw, duplicate and stale updates, a command
+  Haier accepted and the machine ignored, and an unverified appliance. Every
+  claim the narration makes is pinned by a test, so the demonstration cannot
+  drift away from the code and start lying.
+- Screenshots of the window in the README, and repository topics.
+
+### Fixed
+
+- **The Settings tab was empty.** Nothing ever asked the service for the
+  settings; `_draw_messengers` was written and tested by being called directly,
+  so the drawing worked and was unreachable.
+- **Lights and speakers were text boxes.** The `TARGET` setting kind had no case
+  in the window, so you would have been pasting a UUID rather than choosing
+  "Living room light". Now a dropdown filled from the messenger's own
+  `discover()`, showing whether the light does colour.
+- **The named pipe served one client at a time**, while the window asks for the
+  status, the settings and a light list on three threads at once — so two of the
+  three were told the service was not running while the header said it was
+  working normally.
+- **The service could not shut down.** `ConnectNamedPipe` cannot be cancelled,
+  so the accept loop waited forever for a client that was never coming. It now
+  nudges its own pipe to wake up.
+- The migration converts Hue brightness from the v1 scale to the v2 one (254 is
+  not 254%), and matches the prototype's v1 light number to its v2 id **by
+  name** — so upgrading needs nothing from the user at all.
+
 ## [0.2.0] — 2026-09-04
 
 The framework the specification describes, built. The prototype still works and

@@ -150,6 +150,31 @@ def cmd_test(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_demo(args: argparse.Namespace) -> int:
+    """Replay recorded readings through the real code, with no appliance."""
+    from pastie import demo
+
+    available = demo.scenarios()
+    if args.scenario == "list":
+        print("Scenarios:\n")
+        for scenario in available.values():
+            print(f"  {scenario.key:12} {scenario.title}")
+        print("\n  all          run every one of them")
+        return 0
+
+    if args.scenario == "all":
+        wanted = list(available.values())
+    elif args.scenario in available:
+        wanted = [available[args.scenario]]
+    else:
+        print(f"No scenario called {args.scenario!r}. Try:  pastie demo list")
+        return 2
+
+    for scenario in wanted:
+        demo.run(scenario)
+    return 0
+
+
 def cmd_where(_args: argparse.Namespace) -> int:
     """Print where everything lives, which is the first question when it misbehaves."""
     for label, path in (
@@ -200,6 +225,17 @@ def build_parser() -> argparse.ArgumentParser:
     test = commands.add_parser("test", help="fire one messenger now")
     test.add_argument("messenger", help="hue, cast, webhook ...")
     test.set_defaults(handler=cmd_test)
+
+    show = commands.add_parser(
+        "demo", help="watch it work on recorded readings - no appliance, no account"
+    )
+    show.add_argument(
+        "scenario",
+        nargs="?",
+        default="all",
+        help="which one to run: a name, 'list', or 'all' (the default)",
+    )
+    show.set_defaults(handler=cmd_demo)
 
     where = commands.add_parser("where", help="print where Pastie keeps its files")
     where.set_defaults(handler=cmd_where)

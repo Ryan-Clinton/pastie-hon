@@ -26,6 +26,63 @@ Tumble dryer  (HD90-A2959R-UK)
   remaining   about 120 min (still estimating)
 ```
 
+| | |
+|---|---|
+| ![The appliance tab](assets/screenshots/appliance.png) | ![The settings tab](assets/screenshots/settings.png) |
+
+Both are live: the window holds no connection to Haier and no list of Haier's
+programme names — it asks the background service and draws the answer. The
+settings screens are generated from what each messenger says it needs, so adding
+a light means writing one file and no interface code at all.
+
+---
+
+## Watch it work without an appliance
+
+You don't need a dryer, an hOn account, or a network to see whether any of this
+is real:
+
+```
+$ pip install -e .
+$ pastie demo gap
+```
+
+That replays recorded readings through the **real** connector, the **real**
+brain and the **real** command tracker:
+
+```
+  A cycle that finished while Pastie was switched off
+  ---------------------------------------------------
+  The hard case. Pastie sees it running, the PC reboots, and by the time
+  anyone looks again the machine says finished. That is a real completion
+  and must be reported - but as a gap, not as news, because nobody knows
+  when it happened. The cycle counter is what turns an apology into a fact.
+
+  20:00  reading   idle
+  20:10  reading   running, Mixed load, 45 min
+                      (Last seen running at 20:10)
+  20:10  note      The tumble dryer has started.
+         ---  The PC reboots. The cycle finishes while nothing is watching.  ---
+  21:10  reading   finished, Mixed load
+                      (Counter 3 -> 4 while away)
+  21:10  ANNOUNCE  The tumble dryer finished while Pastie wasn't running (one cycle, some time after 20:10).
+
+  2 event(s), 1 worth interrupting somebody for.
+```
+
+Five scenarios, and every one is a case that is easy to get wrong:
+
+| `pastie demo ...` | What it shows |
+|---|---|
+| `cycle` | A whole load. One announcement, and the first reading deliberately silent |
+| `gap` | The one above — a completion nobody watched, reported as a gap |
+| `noise` | The same update twice and a poll two minutes stale. Still one announcement |
+| `ignored` | Haier accepting a stop command the machine then ignores |
+| `unverified` | An oven reporting mode 6, detected and named but never interpreted |
+
+Each scenario's claims are pinned by tests, so the demonstration cannot drift
+away from the code and start lying.
+
 ---
 
 ## What it does
@@ -247,10 +304,16 @@ notifications, and a plain Windows desktop notification.
 
 ```powershell
 pip install -e ".[dev]"
-pytest          # 153 tests, no appliance required
+pytest          # 177 tests, no appliance required
 ruff check .
+ruff format --check src tests scripts
 mypy
+python scripts/third_party_notices.py --check
 ```
+
+Those are exactly what CI runs, on Windows and Linux across 3.11 and 3.12. The
+Linux leg exists to prove `core` stays free of Windows: if the domain layer ever
+needs it, that job fails and the design has told you something.
 
 The tests check **what Pastie announced**, not what it parsed — a dependency
 update that quietly changes how a field is decoded shows up as a missing or
