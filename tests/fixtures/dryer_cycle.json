@@ -1,0 +1,106 @@
+[
+  {
+    "appliance_id": "a1b2c3d4e5f6",
+    "observed_at": "2026-09-04T20:00:00+00:00",
+    "identity": {
+      "applianceTypeName": "TD",
+      "brand": "haier",
+      "modelName": "HD90-A2959R-UK"
+    },
+    "parameters": {
+      "machMode": "1",
+      "prPhase": "0",
+      "doorStatus": "0",
+      "remoteCtrValid": "1",
+      "remainingTimeMM": "270",
+      "dryTimeMM": "0",
+      "dryLevel": "13",
+      "tempLevel": "3",
+      "errors": "00"
+    },
+    "statistics": {
+      "programsCounter": 3,
+      "filterCleaning": { "tot": 15, "count": 3 },
+      "drumCleaning": { "tot": 100, "count": 3 }
+    },
+    "programme_name": "No Program"
+  },
+  {
+    "appliance_id": "a1b2c3d4e5f6",
+    "observed_at": "2026-09-04T20:05:00+00:00",
+    "identity": {
+      "applianceTypeName": "TD",
+      "brand": "haier",
+      "modelName": "HD90-A2959R-UK"
+    },
+    "parameters": {
+      "machMode": "2",
+      "prPhase": "19",
+      "doorStatus": "0",
+      "remoteCtrValid": "1",
+      "remainingTimeMM": "120",
+      "dryTimeMM": "90",
+      "dryLevel": "13",
+      "tempLevel": "3",
+      "errors": "00"
+    },
+    "statistics": {
+      "programsCounter": 3,
+      "filterCleaning": { "tot": 15, "count": 3 },
+      "drumCleaning": { "tot": 100, "count": 3 }
+    },
+    "programme_name": "hqd_mix"
+  },
+  {
+    "appliance_id": "a1b2c3d4e5f6",
+    "observed_at": "2026-09-04T20:20:00+00:00",
+    "identity": {
+      "applianceTypeName": "TD",
+      "brand": "haier",
+      "modelName": "HD90-A2959R-UK"
+    },
+    "parameters": {
+      "machMode": "2",
+      "prPhase": "20",
+      "doorStatus": "0",
+      "remoteCtrValid": "1",
+      "remainingTimeMM": "45",
+      "dryTimeMM": "90",
+      "dryLevel": "13",
+      "tempLevel": "3",
+      "errors": "00"
+    },
+    "statistics": {
+      "programsCounter": 3,
+      "filterCleaning": { "tot": 15, "count": 3 },
+      "drumCleaning": { "tot": 100, "count": 3 }
+    },
+    "programme_name": "hqd_mix"
+  },
+  {
+    "appliance_id": "a1b2c3d4e5f6",
+    "observed_at": "2026-09-04T21:10:00+00:00",
+    "identity": {
+      "applianceTypeName": "TD",
+      "brand": "haier",
+      "modelName": "HD90-A2959R-UK"
+    },
+    "parameters": {
+      "machMode": "7",
+      "prPhase": "0",
+      "doorStatus": "0",
+      "remoteCtrValid": "0",
+      "remainingTimeMM": "0",
+      "dryTimeMM": "90",
+      "dryLevel": "13",
+      "tempLevel": "3",
+      "errors": "00"
+    },
+    "statistics": {
+      "programsCounter": 4,
+      "filterCleaning": { "tot": 15, "count": 4 },
+      "drumCleaning": { "tot": 100, "count": 4 }
+    },
+    "programme_name": "hqd_mix"
+  }
+]

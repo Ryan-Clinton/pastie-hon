@@ -95,6 +95,7 @@ select = [
     "N",           # pep8-naming
     "UP",          # pyupgrade
     "B",           # bugbear
+    "BLE",         # blind except
     "A",           # builtin shadowing
     "C4",          # comprehensions
     "DTZ",         # naive datetimes - this project is all about time

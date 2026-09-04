@@ -158,12 +158,12 @@ def main(argv=None) -> int:
     for f in files:
         try:
             lines = f.read_text(encoding="utf-8", errors="ignore").splitlines()
-        except Exception:
+        except OSError:
             continue
         for line in lines:
             try:
                 o = json.loads(line)
-            except Exception:
+            except ValueError:
                 continue
             ts = o.get("timestamp")
             if isinstance(ts, str) and ts:
@@ -206,7 +206,7 @@ def main(argv=None) -> int:
     for ts, sid, typ, txt, at in shown:
         try:
             tstr = datetime.fromisoformat(ts.replace("Z", "+00:00")).strftime("%m-%d %H:%M")
-        except Exception:
+        except ValueError:
             tstr = ts[:16] or "??"
         who = "YOU " if typ == "user" else "asst"
         if a.full:
