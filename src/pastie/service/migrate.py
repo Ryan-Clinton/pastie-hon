@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,10 @@ from pastie.service.secrets import Credentials, SecretStore
 
 log = logging.getLogger(__name__)
 
+#: (bridge address, key, v1 light number) -> that light's name, and every v2
+#: light's id and name. Injected so the matching can be tested without a bridge.
+LightLookup = Callable[[str, str, str], tuple[str, dict[str, str]]]
+
 
 @dataclass
 class Migration:
@@ -33,6 +38,9 @@ class Migration:
     account: str = ""
     messengers: dict[str, dict[str, Any]] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
+    #: A v1 Hue light number still to be matched to its v2 id. Set by `plan`,
+    #: which does no network; resolved by `apply`, which may.
+    pending_light: str = ""
 
     @property
     def anything(self) -> bool:
@@ -69,18 +77,17 @@ def plan(folder: Path) -> Migration:
         }
         alert = _read_json(folder / "hue_alert.json")
         if alert.get("light") is not None:
-            # v1 numbered its lights; v2 uses an id string. The number is kept so
-            # the settings screen can show what was chosen, and the user picks the
-            # matching light from a list that now has names on it.
+            # v1 numbered its lights; v2 identifies them by a long id. The number
+            # on its own means nothing to v2 - but both APIs know the light's
+            # *name*, and the bridge still answers v1, so the two can be matched
+            # up without asking the user to find their light again.
             hue["light"] = ""
-            migration.notes.append(
-                f"Hue light {alert['light']} was chosen in the prototype. The current "
-                "API identifies lights differently, so pick it again from the list - "
-                "your bridge key still works, so there is no button to press."
-            )
-        for key in ("colour", "brightness", "seconds"):
+            migration.pending_light = str(alert["light"])
+        for key in ("colour", "seconds"):
             if alert.get(key) is not None:
                 hue[key] = alert[key]
+        if alert.get("brightness") is not None:
+            hue["brightness"] = _brightness_to_v2(alert["brightness"])
         if alert.get("restore") is not None:
             hue["restore"] = bool(alert["restore"])
         migration.messengers["hue"] = hue
@@ -104,7 +111,12 @@ def plan(folder: Path) -> Migration:
 
 
 def apply(
-    folder: Path, secrets: SecretStore, settings: SettingsStore, migration: Migration | None = None
+    folder: Path,
+    secrets: SecretStore,
+    settings: SettingsStore,
+    migration: Migration | None = None,
+    *,
+    lookup: LightLookup | None = None,
 ) -> Migration:
     """Carry out a plan. The prototype's own files are not touched."""
     migration = migration or plan(folder)
@@ -113,9 +125,85 @@ def apply(
     if migration.account and credentials.get("password"):
         secrets.save(Credentials(migration.account, credentials["password"]))
 
+    hue = migration.messengers.get("hue")
+    if hue and migration.pending_light:
+        _match_light(migration, hue, lookup or _bridge_lookup)
+
     for name, values in migration.messengers.items():
         settings.update_messenger(name, values)
     return migration
+
+
+def _match_light(migration: Migration, hue: dict[str, Any], lookup: LightLookup) -> None:
+    """Find the v2 id of the light the prototype was flashing.
+
+    Both APIs know the light by the same name, so the number the prototype
+    stored can be turned back into something v2 understands. If the bridge is
+    unreachable, or somebody has renamed the light since, the setting is left
+    empty and the user is told what to pick - a failed lookup must not fail the
+    migration, which is mostly about the password.
+    """
+    number = migration.pending_light
+    try:
+        name, choices = lookup(str(hue.get("address", "")), str(hue.get("key", "")), number)
+    except Exception as error:  # noqa: BLE001 - a bridge on a shelf is not an error here
+        log.info("could not reach the bridge to match Hue light %s: %s", number, error)
+        migration.notes.append(
+            f"Hue light {number} could not be matched - the bridge did not answer. "
+            "Pick the light in Settings; your key still works, so there is no button to press."
+        )
+        return
+
+    for light_id, light_name in choices.items():
+        if light_name.strip().casefold() == (name or "").strip().casefold():
+            hue["light"] = light_id
+            migration.notes.append(f"Hue light {number} matched to '{light_name}'.")
+            return
+
+    migration.notes.append(
+        f"Hue light {number} was '{name}' in the prototype, and no light on the bridge "
+        "has that name now. Pick it again in Settings."
+    )
+
+
+def _bridge_lookup(address: str, key: str, number: str) -> tuple[str, dict[str, str]]:
+    """Ask the bridge for a v1 light's name, and for every v2 light's name.
+
+    The only place in Pastie that speaks v1, and it exists purely to close the
+    gap between the two APIs during an upgrade.
+    """
+    import urllib.request
+
+    from pastie.messengers.hue import Bridge
+
+    url = f"http://{address}/api/{key}/lights/{number}"
+    with urllib.request.urlopen(url, timeout=10) as response:
+        name = str(json.load(response).get("name", ""))
+
+    lights = Bridge(address, key).lights()
+    return name, {
+        str(light.get("id", "")): str(light.get("metadata", {}).get("name", "")) for light in lights
+    }
+
+
+def _brightness_to_v2(value: Any) -> float:
+    """Convert a v1 brightness to the v2 one.
+
+    The two APIs use different scales for the same idea: v1 `bri` is 1-254, v2
+    `dimming.brightness` is a percentage. Carrying the number across unchanged
+    sends 254 to a field whose maximum is 100 - which the bridge either clamps
+    or rejects, and either way the first real alert behaves oddly for a reason
+    nobody would think to look for.
+
+    Anything already inside 0-100 is left alone, so migrating twice is safe.
+    """
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 100.0
+    if number <= 100:
+        return max(1.0, number)
+    return round(min(100.0, number / 254 * 100), 1)
 
 
 def _read_json(path: Path) -> dict[str, Any]:

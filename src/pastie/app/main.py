@@ -68,6 +68,20 @@ class Answer:
     error: str = ""
 
 
+@dataclass
+class _TargetPicker:
+    """A dropdown that shows names and stores ids.
+
+    Lights and speakers are identified by things nobody should have to see - a
+    Hue light is `1ec425b7-2340-457f-91bc-a7f9822fc912` - so the box shows the
+    name the device reports and the variable keeps the id.
+    """
+
+    box: ttk.Combobox
+    variable: tk.Variable
+    names: dict[str, str]
+
+
 class Work:
     """Runs requests off the window's thread and hands the answers back.
 
@@ -99,6 +113,7 @@ class App(tk.Tk):
         self._work = Work()
         self._appliance: str | None = None
         self._fields: dict[str, dict[str, tk.Variable]] = {}
+        self._target_boxes: dict[str, _TargetPicker] = {}
 
         self.title("Pastie")
         self.configure(bg=BG)
@@ -114,6 +129,7 @@ class App(tk.Tk):
 
         self.after(200, self._drain)
         self._refresh()
+        self._load_settings()
 
     # ------------------------------------------------------------ chrome
 
@@ -241,11 +257,32 @@ class App(tk.Tk):
     # ---------------------------------------------------------- settings
 
     def _settings_tab(self, notebook: ttk.Notebook) -> None:
-        page = ttk.Frame(notebook, padding=14)
+        page = ttk.Frame(notebook, padding=0)
         notebook.add(page, text="  Settings  ")
-        self._settings_page = page
 
-        account = self._card(page)
+        # Scrollable, because the number of cards grows with the number of
+        # messengers: three already runs past the bottom of the window, and a
+        # setting you cannot reach is the same as a setting that is not there.
+        canvas = tk.Canvas(page, bg=BG, highlightthickness=0)
+        bar = ttk.Scrollbar(page, orient="vertical", command=canvas.yview)
+        inner = tk.Frame(canvas, bg=BG, padx=14, pady=14)
+        window = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        inner.bind("<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(window, width=e.width))
+        canvas.configure(yscrollcommand=bar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        bar.pack(side="right", fill="y")
+
+        # The wheel only reaches the widget under the pointer, which on this page
+        # is usually a label inside a card rather than the canvas - hence the
+        # app-wide binding, put on while the pointer is over this page and taken
+        # off again when it leaves.
+        canvas.bind("<Enter>", lambda _e: self.bind_all("<MouseWheel>", partial(_wheel, canvas)))
+        canvas.bind("<Leave>", lambda _e: self.unbind_all("<MouseWheel>"))
+
+        self._settings_page = inner
+        account = self._card(inner)
         tk.Label(
             account, text="HON ACCOUNT", bg=CARD, fg=CRUST, font=("Segoe UI", 10, "bold")
         ).pack(anchor="w")
@@ -260,7 +297,12 @@ class App(tk.Tk):
             font=("Segoe UI", 8),
             wraplength=520,
             justify="left",
-        ).pack(anchor="w", pady=(2, 8))
+        ).pack(anchor="w", pady=(2, 4))
+
+        self.account_note = tk.Label(
+            account, text="", bg=CARD, fg=MUTED, font=("Segoe UI", 9, "bold")
+        )
+        self.account_note.pack(anchor="w", pady=(0, 8))
 
         self.username = tk.StringVar()
         self.password = tk.StringVar()
@@ -277,8 +319,15 @@ class App(tk.Tk):
             pady=4,
         ).pack(anchor="w", pady=(8, 0))
 
-        self._messenger_cards = tk.Frame(page, bg=BG)
+        self._messenger_cards = tk.Frame(inner, bg=BG)
         self._messenger_cards.pack(fill="both", expand=True)
+        tk.Label(
+            self._messenger_cards,
+            text="Loading settings...",
+            bg=BG,
+            fg=MUTED,
+            font=("Segoe UI", 9),
+        ).pack(anchor="w")
 
     def _entry(
         self, parent: tk.Misc, label: str, variable: tk.Variable, *, secret: bool = False
@@ -318,12 +367,12 @@ class App(tk.Tk):
                 font=("Segoe UI", 10, "bold"),
             ).pack(anchor="w", pady=(0, 6))
 
-            saved = dict(values.get(messenger.name, {}))
+            name = str(messenger.name)
+            saved = dict(values.get(name, {}))
             fields: dict[str, tk.Variable] = {}
             for setting in messenger.settings:
-                fields[setting["key"]] = self._draw_setting(card, setting, saved)
-            self._fields[messenger.name] = fields
-            name = str(messenger.name)
+                fields[setting["key"]] = self._draw_setting(card, setting, saved, name)
+            self._fields[name] = fields
 
             buttons = tk.Frame(card, bg=CARD)
             buttons.pack(anchor="w", pady=(8, 0))
@@ -347,9 +396,25 @@ class App(tk.Tk):
                 padx=12,
                 pady=4,
             ).pack(side="left", padx=(8, 0))
+            if name in self._target_boxes:
+                tk.Button(
+                    buttons,
+                    text="Find",
+                    command=partial(self._discover, name),
+                    bg=CARD_HI,
+                    fg=TEXT,
+                    relief="flat",
+                    padx=12,
+                    pady=4,
+                ).pack(side="left", padx=(8, 0))
+                # Fill the list straight away for anything already set up. A Hue
+                # bridge answers instantly; a speaker search takes seconds, so it
+                # happens on a worker thread like everything else.
+                if saved.get("enabled") or saved.get("address"):
+                    self._discover(name)
 
     def _draw_setting(
-        self, card: tk.Frame, setting: dict[str, Any], saved: dict[str, Any]
+        self, card: tk.Frame, setting: dict[str, Any], saved: dict[str, Any], messenger: str
     ) -> tk.Variable:
         kind = setting.get("kind", "text")
         value = saved.get(setting["key"], setting.get("default"))
@@ -387,6 +452,14 @@ class App(tk.Tk):
             box.set(variable.get())
             box.bind("<<ComboboxSelected>>", partial(_copy_choice, variable, box))
             box.pack(side="left", fill="x", expand=True)
+        elif kind == "target":
+            # A light or a speaker. The list comes from the messenger's own
+            # discover(), so this holds the id while showing the name - nobody
+            # should have to know that their light is 1ec425b7-2340-457f-...
+            box = ttk.Combobox(row, state="readonly", values=[])
+            box.pack(side="left", fill="x", expand=True)
+            self._target_boxes[messenger] = _TargetPicker(box=box, variable=variable, names={})
+            box.bind("<<ComboboxSelected>>", partial(self._target_chosen, messenger))
         else:
             tk.Entry(
                 row,
@@ -415,6 +488,41 @@ class App(tk.Tk):
     def _refresh(self) -> None:
         self._work.run("status", self._client.status)
         self.after(REFRESH_MS, self._refresh)
+
+    def _load_settings(self) -> None:
+        """Ask the service what the messengers need, so the screens can be drawn.
+
+        Done once at startup and again after anything is saved. Without this the
+        Settings tab draws nothing at all - which is precisely what it did until
+        somebody opened it and asked where their light had gone.
+        """
+        self._work.run("settings", self._client.settings)
+
+    def _discover(self, name: str) -> None:
+        """Fill a messenger's target list from its own discover()."""
+        picker = self._target_boxes.get(name)
+        if picker is not None:
+            picker.box.set("looking...")
+        self._work.run("targets", lambda: (name, self._client.discover(name)))
+
+    def _target_chosen(self, name: str, _event: object) -> None:
+        picker = self._target_boxes.get(name)
+        if picker is None:
+            return
+        picker.variable.set(picker.names.get(_chosen(picker.box), ""))
+
+    def _show_targets(self, name: str, targets: list[dict[str, Any]]) -> None:
+        picker = self._target_boxes.get(name)
+        if picker is None:
+            return
+        picker.names = {_target_label(item): str(item["id"]) for item in targets}
+        picker.box["values"] = list(picker.names)
+        chosen = _value(picker.variable)
+        for label, target_id in picker.names.items():
+            if target_id == chosen:
+                picker.box.set(label)
+                return
+        picker.box.set("" if picker.names else "nothing found")
 
     def _save_account(self) -> None:
         username, password = self.username.get().strip(), self.password.get()
@@ -470,12 +578,27 @@ class App(tk.Tk):
         if answer.error:
             if answer.kind == "status":
                 self.health_label.configure(text=answer.error, fg=RED)
+            elif answer.kind in ("settings", "targets"):
+                # The settings page failing to load is a line on the page, not a
+                # dialogue box: it happens whenever the service is not up yet,
+                # and a modal on startup would be infuriating.
+                self._settings_problem(answer.error)
             else:
                 messagebox.showwarning("Pastie", answer.error)
             return
 
         if answer.kind == "status":
             self._show_status(answer.payload)
+        elif answer.kind == "settings":
+            values, messengers, has_account = answer.payload
+            self._draw_messengers(messengers, values.get("messengers", {}))
+            self.account_note.configure(
+                text="An account is saved." if has_account else "No account saved yet.",
+                fg=GREEN if has_account else AMBER,
+            )
+        elif answer.kind == "targets":
+            name, targets = answer.payload
+            self._show_targets(name, targets)
         elif answer.kind == "account":
             messagebox.showinfo(
                 "Pastie",
@@ -485,15 +608,29 @@ class App(tk.Tk):
             )
         elif answer.kind == "saved":
             self._flash(f"Saved {answer.payload}.")
+            self._load_settings()  # redraw from what the service actually kept
         elif answer.kind == "tested":
             ok, detail = answer.payload
             messagebox.showinfo("Pastie", detail or ("That worked." if ok else "That failed."))
         elif answer.kind == "command":
             self.command_label.configure(text="\n".join(answer.payload))
-            self._settings_refresh_needed = False
 
     def _flash(self, message: str) -> None:
         self.health_label.configure(text=message, fg=GREEN)
+
+    def _settings_problem(self, message: str) -> None:
+        """Say why the settings could not be drawn, in the place they would be."""
+        for child in self._messenger_cards.winfo_children():
+            child.destroy()
+        tk.Label(
+            self._messenger_cards,
+            text=f"{message}\n\nStart the service and this page will fill in.",
+            bg=BG,
+            fg=AMBER,
+            font=("Segoe UI", 9),
+            justify="left",
+            wraplength=520,
+        ).pack(anchor="w")
 
     def _show_status(self, status: dict[str, Any]) -> None:
         health = str(status.get("health", ""))
@@ -605,6 +742,22 @@ def _value(variable: tk.Variable) -> Any:
 
 def _copy_choice(variable: tk.Variable, box: ttk.Combobox, _event: object) -> None:
     variable.set(_chosen(box))
+
+
+def _target_label(target: dict[str, Any]) -> str:
+    """What a light or speaker is called, with its useful detail in brackets.
+
+    "Living room light  (colour)" tells you which bulb *and* whether sending it
+    a colour will work, which is the thing people get wrong.
+    """
+    label = str(target.get("label", target.get("id", "?")))
+    detail = str(target.get("detail", ""))
+    return f"{label}  ({detail})" if detail else label
+
+
+def _wheel(canvas: tk.Canvas, event: Any) -> None:
+    """Scroll the settings page. Windows reports the wheel in 120ths of a notch."""
+    canvas.yview_scroll(int(-event.delta / 120), "units")
 
 
 def main() -> int:

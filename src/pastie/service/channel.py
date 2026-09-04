@@ -26,8 +26,11 @@ network users are not on the list.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import sys
+import threading
+import time
 from typing import Any
 
 from pastie.service.protocol import Dispatcher
@@ -65,11 +68,18 @@ def _security_attributes() -> Any:
 
 
 class PipeServer:
-    """Serves the dispatcher over the named pipe, one client at a time.
+    """Serves the dispatcher over the named pipe.
 
-    One at a time is not a limitation worth removing: the only client is the
-    desktop app, and a second connection is a second window, which can wait the
-    few milliseconds a status reply takes.
+    **Several instances, not one.** An earlier version created a single pipe
+    instance on the reasoning that there is only one desktop app - which was
+    wrong, and wrong in a way that looked like a different bug entirely. The app
+    asks for the status, the settings and a list of lights at the same moment,
+    on three worker threads. With one instance the first is served and the other
+    two find no pipe at all, so a running service reports itself as not running
+    on half the screen.
+
+    So: a fresh instance is created as soon as the previous one is claimed, and
+    each conversation is handled on its own thread.
     """
 
     def __init__(self, dispatcher: Dispatcher, name: str = PIPE_NAME) -> None:
@@ -79,19 +89,63 @@ class PipeServer:
         self._name = name
 
     async def serve(self, stop: asyncio.Event) -> None:
-        while not stop.is_set():
-            await asyncio.to_thread(self._serve_one_client, stop)
+        """Accept connections until told to stop.
 
-    def _serve_one_client(self, stop: asyncio.Event) -> None:
-        import pywintypes
+        Only the waiting-for-a-client part is awaited; each accepted client is
+        handed to a thread so the next instance can be waiting immediately.
+
+        `ConnectNamedPipe` waits forever and cannot be cancelled, so setting
+        `stop` is not enough on its own: something has to arrive for the wait to
+        return. Hence the nudge - the service connects to its own pipe once, to
+        wake the accept and let the loop notice it should finish. Without it the
+        process hangs on exit waiting for a client that is never coming.
+        """
+        waker = asyncio.create_task(self._nudge_when(stop))
+        try:
+            while not stop.is_set():
+                handle = await asyncio.to_thread(self._accept)
+                if handle is None:
+                    continue
+                if stop.is_set():
+                    _close(handle)
+                    return
+                threading.Thread(
+                    target=self._converse, args=(handle, stop), name="pastie-pipe", daemon=True
+                ).start()
+        finally:
+            waker.cancel()
+
+    async def _nudge_when(self, stop: asyncio.Event) -> None:
+        await stop.wait()
+        await asyncio.to_thread(self._nudge)
+
+    def _nudge(self) -> None:
+        """Connect to our own pipe, so a waiting accept returns."""
         import win32file
+
+        with contextlib.suppress(Exception):
+            _close(
+                win32file.CreateFile(
+                    self._name,
+                    win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                    0,
+                    None,
+                    win32file.OPEN_EXISTING,
+                    0,
+                    None,
+                )
+            )
+
+    def _accept(self) -> Any:
+        """Create an instance and block until somebody connects to it."""
+        import pywintypes
         import win32pipe
 
         handle = win32pipe.CreateNamedPipe(
             self._name,
             win32pipe.PIPE_ACCESS_DUPLEX,
             win32pipe.PIPE_TYPE_BYTE | win32pipe.PIPE_READMODE_BYTE | win32pipe.PIPE_WAIT,
-            1,  # one instance: one app, one conversation
+            win32pipe.PIPE_UNLIMITED_INSTANCES,
             _BUFFER,
             _BUFFER,
             1000,
@@ -99,19 +153,40 @@ class PipeServer:
         )
         try:
             win32pipe.ConnectNamedPipe(handle, None)
+        except pywintypes.error as error:
+            log.debug("nobody connected: %s", error)
+            _close(handle)
+            return None
+        return handle
+
+    def _converse(self, handle: Any, stop: asyncio.Event) -> None:
+        """Answer one client until it goes away."""
+        import pywintypes
+        import win32file
+
+        try:
             while not stop.is_set():
                 try:
                     _, data = win32file.ReadFile(handle, _BUFFER)
                 except pywintypes.error:
-                    return  # the app closed the window; wait for the next one
+                    return  # the app closed the window
                 for line in data.decode("utf-8").splitlines():
                     if not line.strip():
                         continue
                     reply = asyncio.run(self._dispatcher.handle_line(line))
                     win32file.WriteFile(handle, reply.encode("utf-8"))
         finally:
-            win32pipe.DisconnectNamedPipe(handle)
-            win32file.CloseHandle(handle)
+            _close(handle)
+
+
+def _close(handle: Any) -> None:
+    import win32file
+    import win32pipe
+
+    with contextlib.suppress(Exception):
+        win32pipe.DisconnectNamedPipe(handle)
+    with contextlib.suppress(Exception):
+        win32file.CloseHandle(handle)
 
 
 class PipeClient:
@@ -125,27 +200,46 @@ class PipeClient:
         """Send one request line, return one reply line."""
         if not WINDOWS:  # pragma: no cover - the app is Windows-only
             raise ChannelUnavailableError("named pipes need Windows")
-        import pywintypes
         import win32file
 
-        try:
-            handle = win32file.CreateFile(
-                self._name,
-                win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-                0,
-                None,
-                win32file.OPEN_EXISTING,
-                0,
-                None,
-            )
-        except pywintypes.error as error:
-            raise ChannelUnavailableError(
-                "Pastie's background service is not running. Start it, and try again."
-            ) from error
-
+        handle = self._connect()
         try:
             win32file.WriteFile(handle, line.encode("utf-8"))
             _, data = win32file.ReadFile(handle, _BUFFER)
             return str(data.decode("utf-8")).splitlines()[0]
         finally:
             win32file.CloseHandle(handle)
+
+    def _connect(self) -> Any:
+        """Open the pipe, waiting briefly if every instance is busy.
+
+        "Busy" and "not there" are different answers and must not be reported
+        the same way: the service creates a new instance the moment one is
+        claimed, so a busy pipe means somebody got in a few milliseconds before
+        us, not that there is nothing to talk to.
+        """
+        import pywintypes
+        import win32file
+        import winerror
+
+        deadline = time.monotonic() + self._timeout
+        while True:
+            try:
+                return win32file.CreateFile(
+                    self._name,
+                    win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                    0,
+                    None,
+                    win32file.OPEN_EXISTING,
+                    0,
+                    None,
+                )
+            except pywintypes.error as error:
+                busy = error.winerror == winerror.ERROR_PIPE_BUSY
+                if not busy or time.monotonic() >= deadline:
+                    raise ChannelUnavailableError(
+                        "Pastie's background service is not running. Start it, and try again."
+                        if not busy
+                        else "Pastie's service is busy. Try again in a moment."
+                    ) from error
+                time.sleep(0.05)

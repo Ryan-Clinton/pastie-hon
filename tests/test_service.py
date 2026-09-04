@@ -464,7 +464,11 @@ def test_a_prototype_folder_is_brought_across(tmp_path: Path) -> None:
 
     secrets = SecretStore(tmp_path / "account.json")
     settings = SettingsStore(tmp_path / "settings.json")
-    result = migrate.apply(folder, secrets, settings)
+
+    def no_bridge(address: str, key: str, number: str) -> tuple[str, dict[str, str]]:
+        raise OSError("no bridge in a test")
+
+    result = migrate.apply(folder, secrets, settings, lookup=no_bridge)
 
     assert secrets.load() == Credentials("someone@example.com", "hunter2")
     saved = settings.load()
@@ -472,9 +476,10 @@ def test_a_prototype_folder_is_brought_across(tmp_path: Path) -> None:
     assert saved.messenger("hue")["key"] == "abc123"
     assert saved.messenger("cast")["address"] == "192.168.1.50"
     assert saved.messenger("cast")["text"] == "Tumble dryer finished."
-    # A v1 light number means nothing to v2, so it is not silently carried over.
+    # A v1 light number means nothing to v2. With no bridge to ask, it is left
+    # empty rather than guessed at, and the user is told what to do.
     assert saved.messenger("hue")["light"] == ""
-    assert any("pick it again" in note for note in result.notes)
+    assert any("did not answer" in note for note in result.notes)
 
 
 def test_migrating_an_empty_folder_does_nothing_and_says_so(tmp_path: Path) -> None:
@@ -531,3 +536,99 @@ def test_one_environment_variable_moves_everything(
     assert paths.service_dir() == tmp_path / "anywhere"
     assert paths.app_dir() == tmp_path / "anywhere" / "user"
     assert paths.log_file() == tmp_path / "anywhere" / "pastie.log"
+
+
+def test_hue_brightness_is_converted_from_the_v1_scale(tmp_path: Path) -> None:
+    """v1 counts brightness to 254; v2 is a percentage. 254 is not 254%."""
+    from pastie.service import migrate
+
+    folder = tmp_path / "prototype"
+    folder.mkdir()
+    (folder / ".credentials").write_text(
+        "user=a@b.c\npassword=x\nhue_bridge=192.168.1.2\nhue_key=abc\n", encoding="utf-8"
+    )
+    (folder / "hue_alert.json").write_text(json.dumps({"brightness": 254}), encoding="utf-8")
+
+    settings = SettingsStore(tmp_path / "settings.json")
+    migrate.apply(folder, SecretStore(tmp_path / "a.json"), settings)
+
+    assert settings.load().messenger("hue")["brightness"] == 100.0
+
+
+def test_migrating_twice_does_not_dim_the_light_each_time(tmp_path: Path) -> None:
+    """A value already on the v2 scale is left alone."""
+    from pastie.service.migrate import _brightness_to_v2
+
+    assert _brightness_to_v2(254) == 100.0
+    assert _brightness_to_v2(127) == 50.0
+    assert _brightness_to_v2(100) == 100.0
+    assert _brightness_to_v2(40) == 40.0
+    assert _brightness_to_v2(0) == 1.0  # v2 has no "off" brightness; off is `on`
+    assert _brightness_to_v2("nonsense") == 100.0
+
+
+def test_the_prototypes_hue_light_is_matched_to_its_v2_id(tmp_path: Path) -> None:
+    """Both APIs know the light by name, so the upgrade needs no re-picking."""
+    from pastie.service import migrate
+
+    folder = tmp_path / "prototype"
+    folder.mkdir()
+    (folder / ".credentials").write_text(
+        "user=a@b.c\npassword=x\nhue_bridge=192.168.1.2\nhue_key=abc\n", encoding="utf-8"
+    )
+    (folder / "hue_alert.json").write_text(json.dumps({"light": 12}), encoding="utf-8")
+
+    def lookup(address: str, key: str, number: str) -> tuple[str, dict[str, str]]:
+        assert (address, key, number) == ("192.168.1.2", "abc", "12")
+        return "Living room light", {
+            "uuid-a": "Hall Ceiling back",
+            "uuid-b": "Living room light",
+        }
+
+    settings = SettingsStore(tmp_path / "settings.json")
+    result = migrate.apply(folder, SecretStore(tmp_path / "a.json"), settings, lookup=lookup)
+
+    assert settings.load().messenger("hue")["light"] == "uuid-b"
+    assert any("matched to 'Living room light'" in note for note in result.notes)
+
+
+def test_a_light_that_has_since_been_renamed_is_reported_not_guessed(tmp_path: Path) -> None:
+    from pastie.service import migrate
+
+    folder = tmp_path / "prototype"
+    folder.mkdir()
+    (folder / ".credentials").write_text(
+        "user=a@b.c\npassword=x\nhue_bridge=192.168.1.2\nhue_key=abc\n", encoding="utf-8"
+    )
+    (folder / "hue_alert.json").write_text(json.dumps({"light": 12}), encoding="utf-8")
+
+    def renamed(address: str, key: str, number: str) -> tuple[str, dict[str, str]]:
+        return "Old name", {"uuid-a": "Something else entirely"}
+
+    settings = SettingsStore(tmp_path / "settings.json")
+    result = migrate.apply(folder, SecretStore(tmp_path / "a.json"), settings, lookup=renamed)
+
+    assert settings.load().messenger("hue")["light"] == ""
+    assert any("no light on the bridge has that name" in note for note in result.notes)
+
+
+def test_an_unreachable_bridge_does_not_fail_the_migration(tmp_path: Path) -> None:
+    """The migration is mostly about the password; a bridge on a shelf is not fatal."""
+    from pastie.service import migrate
+
+    folder = tmp_path / "prototype"
+    folder.mkdir()
+    (folder / ".credentials").write_text(
+        "user=a@b.c\npassword=x\nhue_bridge=192.168.1.2\nhue_key=abc\n", encoding="utf-8"
+    )
+    (folder / "hue_alert.json").write_text(json.dumps({"light": 12}), encoding="utf-8")
+
+    def unreachable(address: str, key: str, number: str) -> tuple[str, dict[str, str]]:
+        raise OSError("no route to host")
+
+    settings = SettingsStore(tmp_path / "settings.json")
+    result = migrate.apply(folder, SecretStore(tmp_path / "a.json"), settings, lookup=unreachable)
+
+    assert result.account == "a@b.c"  # the important half still happened
+    assert settings.load().messenger("hue")["light"] == ""
+    assert any("did not answer" in note for note in result.notes)
