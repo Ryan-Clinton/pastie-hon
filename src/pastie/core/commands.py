@@ -113,6 +113,26 @@ class CommandTracker:
         found = self._active.get(appliance_id)
         return found[0] if found else None
 
+    def active_any(self) -> bool:
+        """Whether anything is still waiting on the machine.
+
+        The watcher reads more often while this is true: somebody is looking at
+        a screen that says "waiting", and twenty seconds of nothing is a long
+        time to look at.
+        """
+        return bool(self._active)
+
+    def active_lines(self) -> list[str]:
+        """The progress display for the attempt worth showing.
+
+        The one in flight if there is one, otherwise the last one to finish -
+        so the outcome stays on screen instead of vanishing the moment it is
+        known.
+        """
+        for progress, _ in self._active.values():
+            return progress.lines()
+        return self._history[-1].lines() if self._history else []
+
     def request(
         self, spec: CommandSpec, appliance_id: str, at: datetime, snapshot: Snapshot | None = None
     ) -> CommandProgress:

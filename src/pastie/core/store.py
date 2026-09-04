@@ -47,27 +47,28 @@ class JsonFile:
     def __init__(self, path: Path | None) -> None:
         self.path = path
         self._data: dict[str, Any] = {}
-        self._loaded = False
 
     def load(self) -> dict[str, Any]:
-        if self._loaded:
-            return self._data
-        self._loaded = True
-        if self.path is None or not self.path.exists():
-            return self._data
+        """Read the document as it is *now*.
+
+        Deliberately not cached: a setting changed in the app has to apply to
+        the next alert rather than the next restart, and the file is a few
+        hundred bytes. With no path, the copy held in memory is the document.
+        """
+        if self.path is None:
+            return dict(self._data)
+        if not self.path.exists():
+            return {}
         try:
             parsed = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             # A damaged file is treated as an empty one. The alternative - refuse
             # to start - turns a cosmetic problem into an appliance you are no
             # longer being told about.
-            return self._data
-        if isinstance(parsed, dict):
-            self._data = parsed
-        return self._data
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
 
     def save(self, data: dict[str, Any]) -> None:
-        self._data = data
-        self._loaded = True
+        self._data = dict(data)
         if self.path is not None:
             atomic_write_text(self.path, json.dumps(data, indent=2, sort_keys=True))
