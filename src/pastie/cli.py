@@ -21,6 +21,7 @@ from pastie.service import main as service_main
 from pastie.service import migrate, paths
 from pastie.service.channel import PipeClient
 from pastie.service.config import SettingsStore
+from pastie.service.instance import AlreadyRunningError, only_one
 from pastie.service.secrets import (
     Credentials,
     SecretStore,
@@ -48,9 +49,13 @@ def cmd_service(args: argparse.Namespace) -> int:
         print("No hOn account saved yet.\n\nRun:  pastie login")
         return 2
 
-    service = service_main.build(credentials)
     try:
-        asyncio.run(service_main.run(service, with_channel=not args.no_channel))
+        with only_one():
+            service = service_main.build(credentials)
+            asyncio.run(service_main.run(service, with_channel=not args.no_channel))
+    except AlreadyRunningError as error:
+        print(error)
+        return 3
     except KeyboardInterrupt:
         print("stopped")
     return 0

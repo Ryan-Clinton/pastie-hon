@@ -18,6 +18,14 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   claim the narration makes is pinned by a test, so the demonstration cannot
   drift away from the code and start lying.
 - Screenshots of the window in the README, and repository topics.
+- **The window starts the background service** if one is not already running, so
+  a single shortcut is all anybody needs. Two processes is an implementation
+  detail, not something to make somebody open a terminal for.
+- **`scripts/install-shortcuts.ps1`** — points the Start menu and Desktop at the
+  window, puts the service in Startup so something is watching when you are not
+  at the PC, and takes the prototype's shortcuts off the menus.
+- **One service, enforced.** A named mutex refuses a second one rather than
+  letting two connections to Haier disagree about what the machine is doing.
 
 ### Fixed
 

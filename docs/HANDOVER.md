@@ -130,16 +130,15 @@ In the order they are worth fixing. The first four in the original version of
 this file are done; what they turned into is recorded here because the reasoning
 is worth keeping.
 
-**Nothing has been pushed.** This is the live blocker and the explanation for
-the licence gap below. `github.com/Ryan-Clinton/pastie-hon` exists, is described
-and has topics, and is **empty** — the initial push is refused because the OAuth
-token lacks the `workflow` scope and the history contains `.github/workflows/`.
-Nothing else can be judged until this is resolved: grant `workflow` to the token
-(or `gh auth refresh -s workflow`) and push.
+**~~Nothing has been pushed.~~** Done, and the licence gap went with it.
+`github.com/Ryan-Clinton/pastie-hon` now holds the history, CI is green on
+Windows and Linux across 3.11 and 3.12, and GitHub detects the MIT licence. It
+could not before because a repository with no files in it has no licence to
+detect - not line endings, and not indexing lag.
 
-**~~GitHub does not detect the licence.~~** Not line endings and not indexing
-lag: GitHub cannot detect a licence in a repository with no files in it. It will
-resolve itself with the first successful push. Worth re-checking then.
+The initial push needed a token with `workflow` scope, because the history
+contains `.github/workflows/`. A `repo`-only token is refused, and the refusal
+names the file rather than the scope, which is a confusing thirty seconds.
 
 **~~No images anywhere.~~** Done. `assets/screenshots/` holds the appliance and
 settings tabs, both live against the real service, and the README opens with
@@ -155,19 +154,26 @@ show than to describe.
 
 **~~No repository topics set.~~** Done.
 
-**The service does not start at login.** It runs while somebody runs it. This is
-the last unanswered question from `SPEC.md` section 14, experiment 4, and it
-needs an elevated prompt: register a scheduled task under the service identity,
-connect MQTT, and confirm `Lifecycle Connection Success` appears. Until that is
-seen, treat service-mode MQTT as unverified — the prototype's notifier runs as
-SYSTEM but only ever *polled*, and MQTT is what drags in the Amazon networking
-components that are fussy about how they are started.
+**~~The Start menu shortcut points at the old prototype `.exe`.~~** Done.
+`scripts/install-shortcuts.ps1` points the Start menu and the Desktop at the
+window and puts the service in Startup, and takes the prototype's shortcuts off
+the menus. The prototype's build is still on disk in `prototype/`, because
+deleting somebody's working fallback is not a script's decision.
 
-**The Start menu shortcut points at the old prototype `.exe`.** Anyone clicking
-it gets the August build with its plaintext credentials file, not this. Either
-repoint it at `pastie-app`, or package the new app and service properly — the
-latter is what `SPEC.md` section 11 asks for, and it is a real job now there are
-two processes and PyInstaller has to be talked through the Amazon components.
+**Experiment 4 is still unanswered, and the login task is not the answer.** The
+service now starts at login *as the user*, which is what makes a single shortcut
+work. That is not the same as running under a service identity, and the question
+`SPEC.md` section 14 asks — whether the Haier libraries connect MQTT when
+started that way — remains open. It needs an elevated prompt: register a
+scheduled task under the service identity and confirm `Lifecycle Connection
+Success` appears. The prototype's notifier ran as SYSTEM but only ever *polled*,
+and MQTT is what drags in the Amazon networking components that are fussy about
+how they are started. Do not let the login task make this look finished.
+
+**Packaging.** There is still no `.exe` for the current build. `SPEC.md` section
+11 asks for the packaged artefact to be tested rather than just the code, and it
+is a real job now: two processes, and PyInstaller has to be talked through the
+Amazon networking components.
 
 **No pushed MQTT message has ever been observed.** Connection and subscription
 are proven against the real appliance; delivery is not, because the machine has

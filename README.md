@@ -232,7 +232,18 @@ python -m venv .venv
 .venv\Scripts\pastie status     # in another window
 ```
 
-Then `pastie-app` for the window, where the messengers are set up.
+Then `pastie-app` for the window, where the messengers are set up. It starts the
+background service itself if one is not already running, so you never have to
+think about there being two halves.
+
+```powershell
+powershell -File scripts\install-shortcuts.ps1
+```
+
+That puts the window on the Start menu and the Desktop, and the service in
+Startup so something is watching while you are away from the PC. It runs as you,
+at login — which is not the same as a Windows service, and the difference is
+[recorded honestly](docs/SPEC.md) rather than papered over.
 
 Already running the old prototype? `pastie migrate --folder prototype` brings
 your account and your Hue and speaker settings across. **Your existing Hue key

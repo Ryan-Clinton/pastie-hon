@@ -29,6 +29,7 @@ from tkinter import messagebox, ttk
 from typing import Any
 
 from pastie.app.client import ServiceClient, ServiceUnavailableError
+from pastie.app.launch import start_service_if_needed
 from pastie.service.channel import PipeClient
 
 log = logging.getLogger(__name__)
@@ -107,9 +108,10 @@ class Work:
 
 
 class App(tk.Tk):
-    def __init__(self, client: ServiceClient) -> None:
+    def __init__(self, client: ServiceClient, *, starting_service: bool = False) -> None:
         super().__init__()
         self._client = client
+        self._starting_service = starting_service
         self._work = Work()
         self._appliance: str | None = None
         self._fields: dict[str, dict[str, tk.Variable]] = {}
@@ -156,7 +158,13 @@ class App(tk.Tk):
             side="left"
         )
         self.health_label = tk.Label(
-            bar, text="connecting...", bg=BG, fg=MUTED, font=("Segoe UI", 10)
+            bar,
+            text=(
+                "starting the background service..." if self._starting_service else "connecting..."
+            ),
+            bg=BG,
+            fg=MUTED,
+            font=("Segoe UI", 10),
         )
         self.health_label.pack(side="right")
 
@@ -577,7 +585,11 @@ class App(tk.Tk):
     def _apply(self, answer: Answer) -> None:
         if answer.error:
             if answer.kind == "status":
-                self.health_label.configure(text=answer.error, fg=RED)
+                # While the service is still coming up, "not running" is a
+                # statement about a few seconds ago, not a fault.
+                waiting = self._starting_service and "not running" in answer.error
+                text = "Starting the background service..." if waiting else answer.error
+                self.health_label.configure(text=text, fg=AMBER if waiting else RED)
             elif answer.kind in ("settings", "targets"):
                 # The settings page failing to load is a line on the page, not a
                 # dialogue box: it happens whenever the service is not up yet,
@@ -633,6 +645,7 @@ class App(tk.Tk):
         ).pack(anchor="w")
 
     def _show_status(self, status: dict[str, Any]) -> None:
+        self._starting_service = False
         health = str(status.get("health", ""))
         self.health_label.configure(
             text=str(status.get("health_message", "")),
@@ -762,8 +775,10 @@ def _wheel(canvas: tk.Canvas, event: Any) -> None:
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO)
-    client = ServiceClient(PipeClient().ask)
-    App(client).mainloop()
+    # Two processes is an implementation detail, not something to make somebody
+    # open a terminal for. If the background half is not up, start it.
+    starting = start_service_if_needed()
+    App(ServiceClient(PipeClient().ask), starting_service=starting).mainloop()
     return 0
 
 
