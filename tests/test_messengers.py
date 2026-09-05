@@ -273,20 +273,101 @@ async def test_a_colour_light_gets_the_colour_it_was_configured_with() -> None:
     assert bridge.puts[0]["color"]["xy"] == {"x": x, "y": y}
 
 
-async def test_a_fault_is_a_different_colour_from_a_finished_cycle() -> None:
-    """So you can tell which it is from the next room, without going to look."""
-    bridge = FakeBridge("bridge", "key")
-    fault = Event(
-        kind=EventKind.FAULT,
+def event_of(kind: EventKind) -> Event:
+    return Event(
+        kind=kind,
         appliance_id="dryer-1",
         at=sample_event().at,
-        key="fault",
-        message="fault",
+        key=f"{kind.value}-1",
+        message=kind.label,
     )
-    await hue_with(bridge).react(fault, {"light": "light-1", "seconds": 0, "colour": "Green"})
 
-    x, y = COLOURS["Red"]
+
+async def test_each_alert_can_have_its_own_colour() -> None:
+    """So you can tell what happened from the next room, without going to look."""
+    settings = {
+        "enabled": True,
+        "light": "light-1",
+        "seconds": 0,
+        "colour": "Green",
+        "when": {
+            "fault": {"colour": "Red"},
+            "needs_emptying": {"colour": "Cyan"},
+            "maintenance_due": {"colour": "Blue"},
+        },
+    }
+
+    seen = {}
+    for kind, expected in (
+        (EventKind.CYCLE_FINISHED, "Green"),
+        (EventKind.FAULT, "Red"),
+        (EventKind.NEEDS_EMPTYING, "Cyan"),
+        (EventKind.MAINTENANCE_DUE, "Blue"),
+    ):
+        bridge = FakeBridge("bridge", "key")
+        runner = MessengerRunner({"hue": hue_with(bridge)})
+        await runner.deliver(event_of(kind), {"hue": settings})
+        seen[kind] = bridge.puts[0]["color"]["xy"]
+        assert seen[kind] == dict(zip("xy", COLOURS[expected], strict=True))
+
+    assert len(set(map(str, seen.values()))) == 4  # four alerts, four colours
+
+
+async def test_an_alert_with_no_override_uses_the_usual_colour() -> None:
+    bridge = FakeBridge("bridge", "key")
+    runner = MessengerRunner({"hue": hue_with(bridge)})
+
+    await runner.deliver(
+        event_of(EventKind.CYCLE_FINISHED),
+        {"hue": {"enabled": True, "light": "light-1", "seconds": 0, "colour": "Purple"}},
+    )
+
+    x, y = COLOURS["Purple"]
     assert bridge.puts[0]["color"]["xy"] == {"x": x, "y": y}
+
+
+async def test_a_blank_override_means_no_opinion_not_an_empty_answer() -> None:
+    """An empty box on the settings screen must not blank the real setting."""
+    bridge = FakeBridge("bridge", "key")
+    runner = MessengerRunner({"hue": hue_with(bridge)})
+
+    await runner.deliver(
+        event_of(EventKind.FAULT),
+        {
+            "hue": {
+                "enabled": True,
+                "light": "light-1",
+                "seconds": 0,
+                "colour": "Orange",
+                "when": {"fault": {"colour": ""}},
+            }
+        },
+    )
+
+    x, y = COLOURS["Orange"]
+    assert bridge.puts[0]["color"]["xy"] == {"x": x, "y": y}
+
+
+def test_the_speaker_can_say_something_different_for_each_alert() -> None:
+    """A full tank and a finished cycle deserve different sentences."""
+    from pastie.messengers.base import for_event
+
+    settings = {
+        "text": "The tumble dryer has finished.",
+        "when": {"needs_emptying": {"text": "The dryer has stopped - empty the water tank."}},
+    }
+
+    finished = for_event(settings, event_of(EventKind.CYCLE_FINISHED))
+    tank = for_event(settings, event_of(EventKind.NEEDS_EMPTYING))
+
+    assert finished["text"] == "The tumble dryer has finished."
+    assert tank["text"] == "The dryer has stopped - empty the water tank."
+
+
+def test_what_can_vary_per_alert_is_declared_by_the_messenger() -> None:
+    """The settings screen draws these rows; it does not know what a light is."""
+    per_event = {setting.key for setting in HueMessenger().settings() if setting.per_event}
+    assert per_event == {"colour", "seconds"}
 
 
 async def test_the_light_is_put_back_the_way_it_was_found() -> None:

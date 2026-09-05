@@ -115,7 +115,14 @@ class CastMessenger:
                     "multicast, which often fails from a Windows service"
                 ),
             ),
-            Setting("text", "What to say", Kind.TEXT, default="The tumble dryer has finished."),
+            Setting(
+                "text",
+                "What to say",
+                Kind.TEXT,
+                default="The tumble dryer has finished.",
+                per_event=True,
+                help="A full tank and a finished cycle deserve different sentences",
+            ),
             Setting(
                 "volume",
                 "Volume",

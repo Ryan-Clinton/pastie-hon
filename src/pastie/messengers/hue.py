@@ -28,7 +28,7 @@ import urllib.request
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any, Protocol
 
-from pastie.core.events import Event, EventKind
+from pastie.core.events import Event
 from pastie.messengers.base import Kind, Result, Setting, Target, sample_event
 from pastie.messengers.flash import TargetLocks, plan
 
@@ -190,17 +190,17 @@ class HueMessenger:
                 help="Your existing key works - you do not need to press the bridge button again",
             ),
             Setting("light", "Light", Kind.TARGET),
-            Setting("colour", "Colour", Kind.CHOICE, default="Green", choices=tuple(COLOURS)),
             Setting(
-                "fault_colour",
-                "Colour for faults",
+                "colour",
+                "Colour",
                 Kind.CHOICE,
-                default="Red",
+                default="Green",
                 choices=tuple(COLOURS),
-                help="So you can tell a fault from a finished cycle without going to look",
+                per_event=True,
+                help="So you can tell what happened from the next room, without going to look",
             ),
             Setting("brightness", "Brightness", Kind.NUMBER, default=100),
-            Setting("seconds", "How long", Kind.NUMBER, default=15),
+            Setting("seconds", "How long", Kind.NUMBER, default=15, per_event=True),
             Setting(
                 "restore",
                 "Put the light back afterwards",
@@ -233,17 +233,19 @@ class HueMessenger:
     async def test(self, config: Mapping[str, Any]) -> Result:
         return await self.react(sample_event(), config)
 
-    async def react(self, event: Event, config: Mapping[str, Any]) -> Result:
+    async def react(self, event: Event, config: Mapping[str, Any]) -> Result:  # noqa: ARG002
+        # `event` is part of the messenger interface and deliberately unused
+        # here: everything this alert should look like was already merged into
+        # `config` by the runner, so a light cannot accidentally treat one kind
+        # of event differently from what the user asked for.
         light_id = str(config.get("light", ""))
         if not light_id:
             return Result.failed("no light chosen")
 
-        # A fault is not the same news as a finished cycle, and the point of a
-        # light in another room is that you can tell which it is without going
-        # to look. Any colour the user has chosen for faults wins over this.
+        # Which colour this alert gets was decided before we were called: the
+        # runner merged the per-alert override into the config. See
+        # `pastie.messengers.base.for_event`.
         colour = str(config.get("colour", "Green"))
-        if event.kind is EventKind.FAULT:
-            colour = str(config.get("fault_colour", "Red"))
 
         async with self._locks.for_target(f"{config.get('address')}/{light_id}"):
             try:

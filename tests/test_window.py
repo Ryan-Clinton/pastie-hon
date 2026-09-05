@@ -92,6 +92,7 @@ MESSENGERS: list[dict[str, Any]] = [
                 "default": "Green",
                 "choices": ["Green", "Red"],
                 "help": "",
+                "per_event": True,
             },
             {
                 "key": "light",
@@ -105,7 +106,22 @@ MESSENGERS: list[dict[str, Any]] = [
     }
 ]
 
-SAVED = {"messengers": {"hue": {"enabled": True, "colour": "Red", "light": "uuid-b"}}}
+SAVED = {
+    "messengers": {
+        "hue": {
+            "enabled": True,
+            "colour": "Red",
+            "light": "uuid-b",
+            "when": {"fault": {"colour": "Green"}},
+        }
+    }
+}
+
+ALERTS = [
+    {"kind": "cycle_finished", "label": "Finished"},
+    {"kind": "fault", "label": "Fault"},
+    {"kind": "needs_emptying", "label": "Needs emptying"},
+]
 
 TARGETS = [
     {"id": "uuid-a", "label": "Hall Ceiling back", "detail": "white only", "available": True},
@@ -118,7 +134,9 @@ def fake_transport(line: str) -> str:
     if '"status"' in line:
         return Reply.worked(**STATUS).to_line()
     if '"settings.get"' in line:
-        return Reply.worked(settings=SAVED, account=True, messengers=MESSENGERS).to_line()
+        return Reply.worked(
+            settings=SAVED, account=True, messengers=MESSENGERS, alerts=ALERTS
+        ).to_line()
     if '"messenger.discover"' in line:
         return Reply.worked(targets=TARGETS).to_line()
     return Reply.worked().to_line()
@@ -290,7 +308,9 @@ def test_the_settings_are_asked_for_again_once_the_service_answers() -> None:
             answers.append("settings")
             if len(answers) == 1:
                 return Reply.failed("Pastie's background service is not running.").to_line()
-            return Reply.worked(settings=SAVED, account=True, messengers=MESSENGERS).to_line()
+            return Reply.worked(
+                settings=SAVED, account=True, messengers=MESSENGERS, alerts=ALERTS
+            ).to_line()
         return Reply.worked(**STATUS).to_line()
 
     app = App(ServiceClient(transport))
@@ -305,3 +325,50 @@ def test_the_settings_are_asked_for_again_once_the_service_answers() -> None:
         assert "hue" in app._fields
     finally:
         app.destroy()
+
+
+def test_each_alert_gets_its_own_row_for_the_settings_that_can_vary(window: Any) -> None:
+    """The grid is implied by two facts, neither of which the window holds.
+
+    The messenger said which of its settings vary per alert; the service said
+    which alerts exist. Nothing here knows what a light is.
+    """
+    assert settle(window, lambda: bool(window._overrides.get("hue")))
+
+    per_alert = window._overrides["hue"]
+    assert set(per_alert) == {"cycle_finished", "fault", "needs_emptying"}
+    # Only the settings marked per_event, not every setting on the card.
+    assert set(per_alert["fault"]) == {"colour"}
+    # And what was already saved comes back into the right box.
+    assert per_alert["fault"]["colour"].get() == "Green"
+    assert per_alert["needs_emptying"]["colour"].get() == ""
+
+
+def test_saving_keeps_only_the_overrides_somebody_filled_in(window: Any) -> None:
+    """The settings file should read as a record of decisions, not empty strings."""
+    assert settle(window, lambda: bool(window._overrides.get("hue")))
+
+    sent: dict[str, Any] = {}
+
+    def capture(name: str, values: dict[str, Any]) -> None:
+        sent.update(values)
+
+    window._client.save_messenger = capture
+    window._overrides["hue"]["needs_emptying"]["colour"].set("Red")
+    window._save_messenger("hue")
+    assert settle(window, lambda: bool(sent))
+
+    assert sent["when"] == {"fault": {"colour": "Green"}, "needs_emptying": {"colour": "Red"}}
+    assert "cycle_finished" not in sent["when"]  # left blank, so left out
+
+
+def test_the_wheel_does_not_change_what_a_dropdown_says(window: Any) -> None:
+    """Scrolling past a dropdown must not rewrite the choice underneath it.
+
+    Tk cycles a combobox's value on the wheel while the pointer is merely over
+    it. On the settings page that quietly changes a saved colour; on the
+    appliance page it changes the programme about to be started. This was found
+    by scrolling the window and watching Temperature go from High to Middle.
+    """
+    for box in (window.programme_box, window.dryness_box, window.temperature_box):
+        assert box.bind("<MouseWheel>"), f"{box} would still cycle on the wheel"

@@ -63,6 +63,12 @@ class Setting:
     default: Any = None
     choices: tuple[str, ...] = ()
     help: str = ""
+    #: Whether this setting can differ per alert - a colour per event, a
+    #: different sentence for a full tank than for a finished cycle. The
+    #: settings screen draws an extra row per alert for anything marked, and
+    #: `MessengerRunner` applies the override. The messenger itself is none the
+    #: wiser: it receives one config and does as it is told.
+    per_event: bool = False
 
 
 @dataclass(frozen=True)
@@ -131,6 +137,32 @@ def sample_event(message: str = "This is a test from Pastie.") -> Event:
     )
 
 
+#: Where a messenger's per-alert overrides live inside its settings.
+OVERRIDES = "when"
+
+
+def for_event(config: Mapping[str, Any], event: Event) -> dict[str, Any]:
+    """A messenger's settings as they apply to *this* alert.
+
+    Overrides live under `when`, keyed by event kind:
+
+        {"colour": "Green", "when": {"fault": {"colour": "Red"}}}
+
+    Merged here rather than in each messenger, for the same reason the flash cap
+    is: a rule every author has to remember is a rule that gets forgotten. A
+    messenger receives one flat config and cannot tell the difference.
+    """
+    overrides = config.get(OVERRIDES)
+    if not isinstance(overrides, dict):
+        return dict(config)
+    wanted = overrides.get(event.kind.value)
+    if not isinstance(wanted, dict):
+        return dict(config)
+    # An override that is blank means "no opinion, use the usual one" - which is
+    # what an empty box on the settings screen should mean.
+    return {**config, **{key: value for key, value in wanted.items() if value not in (None, "")}}
+
+
 def redact(value: str | None, keep: int = 4) -> str:
     """A key or token as it may appear in a log: enough to recognise, not to use."""
     if not value:
@@ -172,7 +204,7 @@ class MessengerRunner:
         is not an error worth an alert.
         """
         jobs = [
-            self._run(messenger, event, configs[name])
+            self._run(messenger, event, for_event(configs[name], event))
             for name, messenger in self._messengers.items()
             if configs.get(name, {}).get("enabled")
         ]

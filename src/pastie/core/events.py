@@ -20,7 +20,16 @@ class EventKind(Enum):
     #: Finished while Pastie was not watching. Reported as a gap, not as news.
     CYCLE_FINISHED_WHILE_AWAY = "cycle_finished_while_away"
     FAULT = "fault"
+    #: Something needs emptying or cleaning *now*, and the machine has usually
+    #: stopped waiting for it. Distinct from MAINTENANCE_DUE, which is a
+    #: schedule the appliance keeps and can be dealt with later.
+    NEEDS_EMPTYING = "needs_emptying"
     MAINTENANCE_DUE = "maintenance_due"
+
+    @property
+    def label(self) -> str:
+        """What to call this on a settings screen."""
+        return _LABELS.get(self, self.value.replace("_", " "))
 
     @property
     def is_alert(self) -> bool:
@@ -37,8 +46,23 @@ _ALERTS = frozenset(
         EventKind.CYCLE_FINISHED,
         EventKind.CYCLE_FINISHED_WHILE_AWAY,
         EventKind.FAULT,
+        # A dryer that has stopped because its tank is full is waiting for
+        # somebody, and being told an hour later is the same as not being told.
+        EventKind.NEEDS_EMPTYING,
+        # The appliance keeps its own service schedule. It is not urgent, but it
+        # is the kind of thing everybody means to do and nobody remembers.
+        EventKind.MAINTENANCE_DUE,
     }
 )
+
+_LABELS = {
+    EventKind.CYCLE_STARTED: "Started",
+    EventKind.CYCLE_FINISHED: "Finished",
+    EventKind.CYCLE_FINISHED_WHILE_AWAY: "Finished while away",
+    EventKind.FAULT: "Fault",
+    EventKind.NEEDS_EMPTYING: "Needs emptying",
+    EventKind.MAINTENANCE_DUE: "Cleaning due",
+}
 
 
 @dataclass(frozen=True, slots=True)

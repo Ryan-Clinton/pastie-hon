@@ -26,6 +26,27 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   at the PC, and takes the prototype's shortcuts off the menus.
 - **One service, enforced.** A named mutex refuses a second one rather than
   letting two connections to Haier disagree about what the machine is doing.
+- **A different alert per event.** Any messenger setting marked `per_event` can
+  be given its own value for each alert — a colour per event on a Hue light, a
+  different sentence on a speaker. Merged centrally in
+  `pastie.messengers.base.for_event`, so a messenger receives one flat config
+  and cannot get it wrong. The settings screen draws the grid implied by two
+  facts it does not itself hold: which settings the messenger says can vary, and
+  which alerts the core defines.
+- **Cleaning reminders are alerts now.** The appliance keeps its own service
+  schedule — filter every 15 cycles, drum every 100 — and Pastie already read
+  it, but nothing was ever done with it.
+- **`NEEDS_EMPTYING`**, for a machine that has stopped and is waiting for
+  somebody. The full water tank will raise it once its phase number is known;
+  the journal is what will supply that.
+
+### Fixed
+
+- **The mouse wheel changed dropdown values.** Tk cycles a combobox while the
+  pointer is merely over it, so scrolling the settings page quietly rewrote
+  saved choices, and scrolling the appliance page changed the programme about to
+  be started. Found by scrolling past Temperature and watching it go from High
+  to Middle.
 
 ### Fixed
 

@@ -30,6 +30,7 @@ from typing import Any
 
 from pastie.app.client import ServiceClient, ServiceUnavailableError
 from pastie.app.launch import start_service_if_needed
+from pastie.messengers.base import OVERRIDES
 from pastie.service.channel import PipeClient
 
 log = logging.getLogger(__name__)
@@ -116,6 +117,7 @@ class App(tk.Tk):
         self._appliance: str | None = None
         self._fields: dict[str, dict[str, tk.Variable]] = {}
         self._target_boxes: dict[str, _TargetPicker] = {}
+        self._overrides: dict[str, dict[str, dict[str, tk.Variable]]] = {}
         #: Settings are asked for once at startup, which is often before the
         #: service has finished connecting. Without this the Settings tab keeps
         #: saying "not running" for ever, while the header - which does retry -
@@ -263,7 +265,7 @@ class App(tk.Tk):
         tk.Label(
             row, text=label, bg=CARD, fg=MUTED, font=("Segoe UI", 9), width=14, anchor="w"
         ).pack(side="left")
-        box = ttk.Combobox(row, state="readonly", values=[])
+        box = _ignore_wheel(ttk.Combobox(row, state="readonly", values=[]))
         box.pack(side="left", fill="x", expand=True)
         return box
 
@@ -368,6 +370,7 @@ class App(tk.Tk):
         for child in self._messenger_cards.winfo_children():
             child.destroy()
         self._fields.clear()
+        self._overrides.clear()
 
         for messenger in messengers:
             card = tk.Frame(self._messenger_cards, bg=CARD, padx=16, pady=14)
@@ -386,6 +389,7 @@ class App(tk.Tk):
             for setting in messenger.settings:
                 fields[setting["key"]] = self._draw_setting(card, setting, saved, name)
             self._fields[name] = fields
+            self._draw_overrides(card, messenger, saved, name)
 
             buttons = tk.Frame(card, bg=CARD)
             buttons.pack(anchor="w", pady=(8, 0))
@@ -426,6 +430,79 @@ class App(tk.Tk):
                 if saved.get("enabled") or saved.get("address"):
                     self._discover(name)
 
+    def _draw_overrides(
+        self, card: tk.Frame, messenger: Any, saved: dict[str, Any], name: str
+    ) -> None:
+        """Let each alert differ, for the settings that say they can.
+
+        Nothing here knows what a light or a speaker is. The messenger declared
+        which of its settings vary per alert, the service said which alerts
+        exist, and this draws the grid those two facts imply.
+        """
+        varying = [setting for setting in messenger.settings if setting.get("per_event")]
+        if not varying or not messenger.alerts:
+            return
+
+        tk.Label(
+            card,
+            text="DIFFERENT FOR...",
+            bg=CARD,
+            fg=CRUST,
+            font=("Segoe UI", 9, "bold"),
+        ).pack(anchor="w", pady=(12, 2))
+        tk.Label(
+            card,
+            text="Leave blank to use the settings above.",
+            bg=CARD,
+            fg=MUTED,
+            font=("Segoe UI", 8),
+        ).pack(anchor="w", pady=(0, 6))
+
+        stored = saved.get(OVERRIDES)
+        overrides: dict[str, Any] = stored if isinstance(stored, dict) else {}
+        per_alert: dict[str, dict[str, tk.Variable]] = {}
+
+        for kind, label in messenger.alerts:
+            row = tk.Frame(card, bg=CARD)
+            row.pack(fill="x", pady=1)
+            tk.Label(
+                row, text=label, bg=CARD, fg=TEXT, font=("Segoe UI", 9), width=18, anchor="w"
+            ).pack(side="left")
+
+            for_kind = overrides.get(kind)
+            current: dict[str, Any] = for_kind if isinstance(for_kind, dict) else {}
+            fields: dict[str, tk.Variable] = {}
+            for setting in varying:
+                fields[setting["key"]] = self._draw_override(row, setting, current)
+            per_alert[kind] = fields
+
+        self._overrides[name] = per_alert
+
+    def _draw_override(
+        self, row: tk.Frame, setting: dict[str, Any], current: dict[str, Any]
+    ) -> tk.Variable:
+        """One override box: a choice as a dropdown, anything else as an entry."""
+        variable: tk.Variable = tk.StringVar(value=str(current.get(setting["key"], "") or ""))
+        if setting.get("kind") == "choice":
+            box = _ignore_wheel(
+                ttk.Combobox(
+                    row, state="readonly", values=["", *setting.get("choices", [])], width=12
+                )
+            )
+            box.set(_value(variable))
+            box.bind("<<ComboboxSelected>>", partial(_copy_choice, variable, box))
+            box.pack(side="left", padx=(0, 6))
+        else:
+            tk.Entry(
+                row,
+                textvariable=variable,
+                bg=FIELD,
+                fg=INK,
+                relief="flat",
+                insertbackground=INK,
+            ).pack(side="left", fill="x", expand=True, padx=(0, 6), ipady=2)
+        return variable
+
     def _draw_setting(
         self, card: tk.Frame, setting: dict[str, Any], saved: dict[str, Any], messenger: str
     ) -> tk.Variable:
@@ -461,7 +538,9 @@ class App(tk.Tk):
         ).pack(side="left")
 
         if kind == "choice":
-            box = ttk.Combobox(row, state="readonly", values=list(setting.get("choices", [])))
+            box = _ignore_wheel(
+                ttk.Combobox(row, state="readonly", values=list(setting.get("choices", [])))
+            )
             box.set(variable.get())
             box.bind("<<ComboboxSelected>>", partial(_copy_choice, variable, box))
             box.pack(side="left", fill="x", expand=True)
@@ -469,7 +548,7 @@ class App(tk.Tk):
             # A light or a speaker. The list comes from the messenger's own
             # discover(), so this holds the id while showing the name - nobody
             # should have to know that their light is 1ec425b7-2340-457f-...
-            box = ttk.Combobox(row, state="readonly", values=[])
+            box = _ignore_wheel(ttk.Combobox(row, state="readonly", values=[]))
             box.pack(side="left", fill="x", expand=True)
             self._target_boxes[messenger] = _TargetPicker(box=box, variable=variable, names={})
             box.bind("<<ComboboxSelected>>", partial(self._target_chosen, messenger))
@@ -547,6 +626,17 @@ class App(tk.Tk):
 
     def _save_messenger(self, name: str) -> None:
         values = {key: _value(variable) for key, variable in self._fields.get(name, {}).items()}
+        overrides = {
+            kind: {key: _value(variable) for key, variable in fields.items()}
+            for kind, fields in self._overrides.get(name, {}).items()
+        }
+        # Only keep the ones somebody actually filled in, so the settings file
+        # stays a record of decisions rather than a wall of empty strings.
+        values[OVERRIDES] = {
+            kind: chosen
+            for kind, fields in overrides.items()
+            if (chosen := {k: v for k, v in fields.items() if v not in (None, "")})
+        }
 
         def save() -> str:
             self._client.save_messenger(name, values)
@@ -765,6 +855,19 @@ def _value(variable: tk.Variable) -> Any:
 
 def _copy_choice(variable: tk.Variable, box: ttk.Combobox, _event: object) -> None:
     variable.set(_chosen(box))
+
+
+def _ignore_wheel(box: ttk.Combobox) -> ttk.Combobox:
+    """Stop the mouse wheel changing what a dropdown says.
+
+    Tk lets the wheel cycle a combobox's value while the pointer is merely over
+    it. On a settings page that silently rewrites what you chose while you
+    scroll past; on the appliance page it changes the programme you are about to
+    start. Neither is something anybody asked for, and both look like the
+    software deciding on its own.
+    """
+    box.bind("<MouseWheel>", lambda _event: "break")
+    return box
 
 
 def _target_label(target: dict[str, Any]) -> str:

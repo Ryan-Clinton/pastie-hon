@@ -36,6 +36,8 @@ class MessengerDescription:
     name: str
     label: str
     settings: list[dict[str, Any]] = field(default_factory=list)
+    #: (kind, label) for every alert that can be given its own settings.
+    alerts: list[tuple[str, str]] = field(default_factory=list)
 
 
 class ServiceClient:
@@ -64,13 +66,22 @@ class ServiceClient:
         return self._ask("status")
 
     def settings(self) -> tuple[dict[str, Any], list[MessengerDescription], bool]:
-        """Current settings, how to draw them, and whether an account is saved."""
+        """Current settings, how to draw them, and whether an account is saved.
+
+        The alerts that can be given their own settings come back too, and are
+        kept on the description rather than hard-coded in the window.
+        """
         reply = self._ask("settings.get")
+        alerts = [
+            (str(item.get("kind", "")), str(item.get("label", "")))
+            for item in reply.get("alerts", [])
+        ]
         messengers = [
             MessengerDescription(
                 name=str(item.get("name", "")),
                 label=str(item.get("label", "")),
                 settings=list(item.get("settings", [])),
+                alerts=alerts,
             )
             for item in reply.get("messengers", [])
         ]

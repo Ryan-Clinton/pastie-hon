@@ -17,6 +17,7 @@ from typing import Any
 
 from pastie.connector.hon import HonConnector
 from pastie.core.commands import start_programme, stop_programme
+from pastie.core.events import EventKind
 from pastie.core.ledger import Ledger
 from pastie.core.memory import MemoryStore
 from pastie.core.tracker import Tracker
@@ -74,6 +75,12 @@ def register_handlers(service: Service, registry: Any) -> None:
         return Reply.worked(
             settings=current.to_json(),
             account=secrets.exists(),
+            # Which alerts can be given their own settings. Sent from here so
+            # the window draws whatever the core defines, rather than holding
+            # its own copy that drifts.
+            alerts=[
+                {"kind": kind.value, "label": kind.label} for kind in EventKind if kind.is_alert
+            ],
             messengers=[
                 {
                     "name": messenger.name,
@@ -86,6 +93,7 @@ def register_handlers(service: Service, registry: Any) -> None:
                             "default": setting.default,
                             "choices": list(setting.choices),
                             "help": setting.help,
+                            "per_event": setting.per_event,
                         }
                         for setting in messenger.settings()
                     ],
