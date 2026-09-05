@@ -175,10 +175,27 @@ how they are started. Do not let the login task make this look finished.
 is a real job now: two processes, and PyInstaller has to be talked through the
 Amazon networking components.
 
-**No pushed MQTT message has ever been observed.** Connection and subscription
-are proven against the real appliance; delivery is not, because the machine has
-been idle every time it was tested. Neither is recovery after a long
-disconnection, nor what happens when credentials expire mid-cycle.
+**~~No pushed MQTT message has ever been observed.~~** Observed, 2026-09-06,
+during a real cycle. They arrive as parameter deltas rather than whole readings:
+
+    appliancestatus/update - {'parameters': [{'parName': 'remainingTimeMM',
+    'parOldVal': '197', 'parNewVal': '196'}], 'applianceTypeName': 'TD', ...}
+
+Note the shape. Pastie currently uses a push only as a nudge to re-read
+everything, which is correct and wasteful: the delta says exactly what changed.
+Using it directly would be an optimisation, and would need care - at-least-once
+delivery means duplicates, and a delta applied twice is not always harmless.
+
+**Still unproven:** recovery after a long disconnection, and what happens when
+credentials expire mid-cycle. Both need hours of running rather than minutes.
+
+**The full water tank has a phase number nobody has written down.** Haier's own
+translations carry `PHASE_ERROR_FULL_TANK: Full tank` and a tumble-dryer
+notification, so the condition is reported in `prPhase` - but the community's
+map records 8, 12 and 17 only as "unknown" and one of them is it. The service
+journals every changed raw value, so the next full tank identifies itself. When
+it does: add it to the dryer profile, raise it as an event, and send it
+upstream - `pyhOn` has had it as "unknown" for years.
 
 ## Conventions
 

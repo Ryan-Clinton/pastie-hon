@@ -271,3 +271,37 @@ def test_the_settings_page_says_why_it_is_empty_when_the_service_is_down(
     ]
     assert any("not running" in text for text in texts)
     assert any("Start the service" in text for text in texts)
+
+
+def test_the_settings_are_asked_for_again_once_the_service_answers() -> None:
+    """The window opens before the service has finished connecting.
+
+    Settings are requested once at startup. If that request fails - which it
+    does whenever the window wins the race, and connecting to Haier takes about
+    fifteen seconds - nothing used to ask again, so the Settings tab said "the
+    service is not running" for ever while the header said everything was fine.
+    """
+    from pastie.app.main import Answer, App
+
+    answers: list[str] = []
+
+    def transport(line: str) -> str:
+        if '"settings.get"' in line:
+            answers.append("settings")
+            if len(answers) == 1:
+                return Reply.failed("Pastie's background service is not running.").to_line()
+            return Reply.worked(settings=SAVED, account=True, messengers=MESSENGERS).to_line()
+        return Reply.worked(**STATUS).to_line()
+
+    app = App(ServiceClient(transport))
+    app.withdraw()
+    try:
+        # The first request failed, exactly as it does in the race.
+        app._apply(Answer("settings", error="Pastie's background service is not running."))
+        assert not app._fields
+
+        # A status arriving proves the service is up - so ask again.
+        assert settle(app, lambda: bool(app._fields), seconds=8), "the settings were never retried"
+        assert "hue" in app._fields
+    finally:
+        app.destroy()

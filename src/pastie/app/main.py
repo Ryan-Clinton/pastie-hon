@@ -116,6 +116,11 @@ class App(tk.Tk):
         self._appliance: str | None = None
         self._fields: dict[str, dict[str, tk.Variable]] = {}
         self._target_boxes: dict[str, _TargetPicker] = {}
+        #: Settings are asked for once at startup, which is often before the
+        #: service has finished connecting. Without this the Settings tab keeps
+        #: saying "not running" for ever, while the header - which does retry -
+        #: says everything is fine.
+        self._settings_loaded = False
 
         self.title("Pastie")
         self.configure(bg=BG)
@@ -602,6 +607,7 @@ class App(tk.Tk):
         if answer.kind == "status":
             self._show_status(answer.payload)
         elif answer.kind == "settings":
+            self._settings_loaded = True
             values, messengers, has_account = answer.payload
             self._draw_messengers(messengers, values.get("messengers", {}))
             self.account_note.configure(
@@ -646,6 +652,10 @@ class App(tk.Tk):
 
     def _show_status(self, status: dict[str, Any]) -> None:
         self._starting_service = False
+        # The service is clearly answering now. If the settings never arrived -
+        # because the window opened first - this is the moment to ask again.
+        if not self._settings_loaded:
+            self._load_settings()
         health = str(status.get("health", ""))
         self.health_label.configure(
             text=str(status.get("health_message", "")),
