@@ -61,8 +61,12 @@ def channel() -> Any:
     async def quick(arguments: dict[str, Any]) -> Reply:
         return Reply.worked(answer="quick", **arguments)
 
+    async def whose_loop(_arguments: dict[str, Any]) -> Reply:
+        return Reply.worked(loop=id(asyncio.get_running_loop()), server_loop=id(loop))
+
     dispatcher.on("slow", slow)
     dispatcher.on("quick", quick)
+    dispatcher.on("whose_loop", whose_loop)
 
     stop = asyncio.Event()
     server = PipeServer(dispatcher, name=name)
@@ -146,3 +150,21 @@ def test_a_client_with_nothing_to_talk_to_says_the_service_is_not_running() -> N
 
     with pytest.raises(ChannelUnavailableError, match="not running"):
         lonely.ask(Request("quick", {}).to_line())
+
+
+def test_requests_are_answered_on_the_services_own_loop(channel: PipeClient) -> None:
+    """The bug that made Start appear to do nothing.
+
+    Requests used to be run on a brand new event loop per connection. Status and
+    settings never noticed, because they touch no network - but a command uses
+    the connector's HTTP session, which belongs to the service's loop, and using
+    it from another one fails inside aiohttp with "Timeout context manager
+    should be used inside a task". The Start button looked dead.
+    """
+    reply = Reply.parse(channel.ask(Request("whose_loop", {}).to_line()))
+
+    assert reply.ok, reply.error
+    assert reply.data is not None
+    assert reply.data["loop"] == reply.data["server_loop"], (
+        "the request was answered on a different event loop from the service's"
+    )

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -640,3 +641,36 @@ def test_an_unreachable_bridge_does_not_fail_the_migration(tmp_path: Path) -> No
     assert result.account == "a@b.c"  # the important half still happened
     assert settings.load().messenger("hue")["light"] == ""
     assert any("did not answer" in note for note in result.notes)
+
+
+async def test_the_journal_records_what_changed_between_readings(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """How an unidentified number gets identified without anybody watching."""
+    recorded = readings()
+    connector = FakeConnector([recorded[1], recorded[3]])
+    watcher = build_watcher(connector)
+
+    with caplog.at_level(logging.INFO, logger="pastie.service.watcher"):
+        await watcher.refresh()  # the first reading has nothing to compare against
+        assert "machMode" not in caplog.text
+        await watcher.refresh()
+
+    assert "machMode 2 -> 7" in caplog.text
+    assert "prPhase 19 -> 0" in caplog.text
+
+
+async def test_the_journal_ignores_counters_that_move_on_their_own(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A line every two minutes saying the clock moved would bury the real ones."""
+    recorded = readings()
+    connector = FakeConnector([recorded[1], recorded[2]])
+    watcher = build_watcher(connector)
+
+    with caplog.at_level(logging.INFO, logger="pastie.service.watcher"):
+        await watcher.refresh()
+        await watcher.refresh()
+
+    assert "remainingTimeMM" not in caplog.text
+    assert "prPhase 19 -> 20" in caplog.text  # but a real change still lands

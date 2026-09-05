@@ -138,7 +138,10 @@ TUMBLE_DRYER = Profile(
         "14": "Ready to wear",
         "15": "Extra dry",
     },
-    temperatures={"1": "Cool", "2": "Low", "3": "Middle", "4": "High"},
+    # No "1" (Cool): the machine rejects it outright - "Allowed: min 2 max 4
+    # step 1 But was: 1" - so offering it only produces a start that quietly
+    # drops the setting. What the appliance refuses, we do not put in a dropdown.
+    temperatures={"2": "Low", "3": "Middle", "4": "High"},
     # Both confirmed against the machine. `stopProgram` is in the list because it
     # was tested - and the test is what proved it can be accepted and ignored.
     commands=frozenset({"startProgram", "stopProgram"}),

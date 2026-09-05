@@ -47,6 +47,13 @@ _BACKOFF = (5, 10, 20, 40, 60)
 #: time to look at.
 _URGENT_SECONDS = 5
 
+#: Values that tick on their own. They are excluded from the change journal
+#: because a line every two minutes saying the clock moved is not a record of
+#: anything, and it would hide the lines that are.
+_ALWAYS_MOVING = frozenset(
+    {"remainingTimeMM", "remainingStandbyTime", "antiCreaseTime", "delayTime"}
+)
+
 
 class ApplianceConnector(Protocol):
     """What the watcher needs from a connector. `HonConnector` is the one."""
@@ -267,6 +274,7 @@ class Watcher:
         events: list[Event] = []
         for reading in readings:
             snapshot = translate(reading, self._connector.profile(reading.appliance_id))
+            self._log_changes(self._snapshots.get(snapshot.appliance_id), snapshot)
             self._snapshots[snapshot.appliance_id] = snapshot
             self._commands.observe(snapshot)
             log.debug(
@@ -279,6 +287,32 @@ class Watcher:
             self._recent = ([event, *self._recent])[:20]
             await self._deliver(event)
         return events
+
+    @staticmethod
+    def _log_changes(before: Snapshot | None, after: Snapshot) -> None:
+        """Journal every raw value that moved since the last reading.
+
+        This is how an unidentified number gets identified. The community's
+        phase map for tumble dryers has three values recorded only as "unknown",
+        and one of them is the full water tank - Haier's own app has a string
+        for it (`PHASE_ERROR_FULL_TANK: Full tank`) but the number is not
+        written down anywhere. Nobody is going to sit watching a dryer to find
+        out, so the service writes down what changed and the answer turns up on
+        its own.
+
+        Counters that move every single reading are left out: they are not
+        changes in any interesting sense, and including them would bury the one
+        line that matters under a thousand that do not.
+        """
+        if before is None:
+            return
+        changes = [
+            f"{key} {before.raw.get(key, '-')} -> {value}"
+            for key, value in sorted(after.raw.items())
+            if key not in _ALWAYS_MOVING and before.raw.get(key) != value
+        ]
+        if changes:
+            log.info("%s: %s", after.name, ", ".join(changes))
 
     async def _deliver(self, event: Event) -> list[Delivery]:
         if not event.is_alert:

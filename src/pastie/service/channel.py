@@ -33,7 +33,7 @@ import threading
 import time
 from typing import Any
 
-from pastie.service.protocol import Dispatcher
+from pastie.service.protocol import Dispatcher, Reply
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +47,11 @@ PIPE_NAME = r"\\.\pipe\pastie"
 SECURITY_DESCRIPTOR = "D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;IU)"
 
 _BUFFER = 64 * 1024
+
+#: Long enough for a command: sending one waits for Haier to accept it, and
+#: Haier is not always quick. Short enough that a wedged request does not hold a
+#: window's worth of threads open for ever.
+_REQUEST_TIMEOUT = 60.0
 
 
 class ChannelUnavailableError(RuntimeError):
@@ -87,9 +92,13 @@ class PipeServer:
             raise ChannelUnavailableError("named pipes need Windows")
         self._dispatcher = dispatcher
         self._name = name
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     async def serve(self, stop: asyncio.Event) -> None:
         """Accept connections until told to stop.
+
+        The loop this runs on is remembered, because every request has to be
+        answered *on it* - see `_converse`.
 
         Only the waiting-for-a-client part is awaited; each accepted client is
         handed to a thread so the next instance can be waiting immediately.
@@ -100,6 +109,7 @@ class PipeServer:
         wake the accept and let the loop notice it should finish. Without it the
         process hangs on exit waiting for a client that is never coming.
         """
+        self._loop = asyncio.get_running_loop()
         waker = asyncio.create_task(self._nudge_when(stop))
         try:
             while not stop.is_set():
@@ -160,7 +170,17 @@ class PipeServer:
         return handle
 
     def _converse(self, handle: Any, stop: asyncio.Event) -> None:
-        """Answer one client until it goes away."""
+        """Answer one client until it goes away.
+
+        Every request is run **on the service's own event loop**, never on a
+        fresh one. This is not tidiness: the connector's HTTP session belongs to
+        that loop, and a command handled anywhere else fails deep inside aiohttp
+        with "Timeout context manager should be used inside a task" - which
+        looks nothing like the cause, and reaches the user as a Start button
+        that appears to do nothing at all.
+
+        Status and settings never noticed, because they touch no network.
+        """
         import pywintypes
         import win32file
 
@@ -173,10 +193,21 @@ class PipeServer:
                 for line in data.decode("utf-8").splitlines():
                     if not line.strip():
                         continue
-                    reply = asyncio.run(self._dispatcher.handle_line(line))
-                    win32file.WriteFile(handle, reply.encode("utf-8"))
+                    win32file.WriteFile(handle, self._answer(line).encode("utf-8"))
         finally:
             _close(handle)
+
+    def _answer(self, line: str) -> str:
+        """Hand one request to the service's loop and wait for its reply."""
+        loop = self._loop
+        if loop is None or loop.is_closed():  # pragma: no cover - only during shutdown
+            return Reply.failed("the service is shutting down").to_line()
+        future = asyncio.run_coroutine_threadsafe(self._dispatcher.handle_line(line), loop)
+        try:
+            return future.result(timeout=_REQUEST_TIMEOUT)
+        except TimeoutError:
+            future.cancel()
+            return Reply.failed("the service took too long to answer").to_line()
 
 
 def _close(handle: Any) -> None:
