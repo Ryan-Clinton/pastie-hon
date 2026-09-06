@@ -222,6 +222,15 @@ class MessengerRunner:
         except Exception as error:  # noqa: BLE001 - isolation is the entire point
             log.warning("%s failed: %s", messenger.name, error)
             result = Result.failed(f"{type(error).__name__}: {error}")
+        # Successes are logged too. A record of what an alert actually did is
+        # only useful if it is complete: "nothing in the log" has to mean
+        # "nothing happened", not "nothing went wrong".
+        log.info(
+            "alert %s -> %s: %s",
+            event.kind.value,
+            messenger.name,
+            result.detail or ("done" if result.ok else "failed"),
+        )
         return Delivery(messenger=messenger.name, result=result, event_id=event.id)
 
 

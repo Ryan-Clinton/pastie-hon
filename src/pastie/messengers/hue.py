@@ -114,12 +114,21 @@ class Bridge:
         return list(self._request("/light").get("data", []))
 
     def light(self, light_id: str) -> dict[str, Any]:
+        """One light, including its `metadata.name` - which is what a person calls it."""
         found = self._request(f"/light/{light_id}").get("data", [])
         if not found:
             raise HueError("that light is no longer on the bridge")
         return dict(found[0])
 
     def put(self, light_id: str, body: dict[str, Any]) -> None:
+        """Write to one light, and write down that we did.
+
+        Recorded because "are you sure it did not touch the other bulbs?" is a
+        fair question that should be answered from a log rather than from
+        somebody's assurance about what the code does. Every write is one line,
+        naming the single light it went to.
+        """
+        log.info("hue write -> %s %s", light_id, body)
         self._request(f"/light/{light_id}", "PUT", body)
 
 
@@ -274,6 +283,8 @@ class HueMessenger:
             # call fail. Pulsing the brightness says the same thing.
             log.debug("light %s is white-only; pulsing brightness instead", light_id)
 
+        name = str(before.get("metadata", {}).get("name", "")) or light_id
+        log.info("hue: alerting %r (%s) in %s", name, light_id, colour)
         bridge.put(light_id, {**wanted, "alert": {"action": "breathe"}})
         _sleep(pattern.seconds)
 

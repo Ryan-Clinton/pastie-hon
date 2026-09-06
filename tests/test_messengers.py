@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
@@ -614,3 +615,42 @@ def test_the_registry_holds_every_messenger_this_build_knows_about(tmp_path: Pat
     assert registry.get("hue") is not None
     assert registry.get("nothing-like-this") is None
     assert len(registry) == 3
+
+
+async def test_the_alert_records_which_light_by_name(caplog: pytest.LogCaptureFixture) -> None:
+    """ "Are you sure it did not touch the other bulbs?" deserves a log, not an opinion."""
+    bridge = FakeBridge("bridge", "key")
+    bridge.state["metadata"] = {"name": "Living room light"}
+
+    with caplog.at_level(logging.INFO, logger="pastie.messengers.hue"):
+        await hue_with(bridge).react(sample_event(), {"light": "light-1", "seconds": 0})
+
+    assert "hue: alerting 'Living room light' (light-1)" in caplog.text
+
+
+def test_every_write_to_the_bridge_is_recorded(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """One line per write, naming the single light it went to."""
+
+    def accept(*_a: Any, **_k: Any) -> FakeResponse:
+        return FakeResponse({"data": []})
+
+    monkeypatch.setattr(urllib.request, "urlopen", accept)
+
+    with caplog.at_level(logging.INFO, logger="pastie.messengers.hue"):
+        Bridge("192.168.1.2", "key").put("light-1", {"on": {"on": True}})
+
+    writes = [line for line in caplog.text.splitlines() if "hue write ->" in line]
+    assert len(writes) == 1
+    assert "light-1" in writes[0]
+
+
+async def test_a_delivery_that_worked_is_logged_too(caplog: pytest.LogCaptureFixture) -> None:
+    """Nothing in the log has to mean nothing happened - not nothing went wrong."""
+    runner = MessengerRunner({"fine": Fine()})
+
+    with caplog.at_level(logging.INFO, logger="pastie.messengers.base"):
+        await runner.deliver(sample_event(), {"fine": {"enabled": True}})
+
+    assert "alert cycle_finished -> fine: did the thing" in caplog.text
