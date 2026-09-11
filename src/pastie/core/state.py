@@ -93,6 +93,9 @@ class Snapshot:
     door_open: bool | None = None
     remote_allowed: bool | None = None
     fault_code: str | None = None
+    #: Something the machine has stopped for and is waiting on a person to do -
+    #: "the water tank is full". Only ever set from a verified mapping.
+    attention: str | None = None
     cycle_count: int | None = None
     maintenance: tuple[Maintenance, ...] = ()
     raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
@@ -122,6 +125,7 @@ class Snapshot:
             str(self.door_open),
             str(self.remote_allowed),
             self.fault_code or "",
+            self.attention or "",
             str(self.cycle_count),
         )
         return hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]

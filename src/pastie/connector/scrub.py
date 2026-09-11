@@ -53,6 +53,11 @@ SAFE_PARAMETERS = frozenset(
         "pause",
         "remoteCtrValid",
         "errors",
+        # The dryer's notification channel. Observed on the HD90: 1 when
+        # lightweight items reach iron-dry, 4 when the water tank is full. It was
+        # missing from this list, which meant the change journal - built to catch
+        # exactly this - saw the tank fill and recorded only "paused".
+        "message",
         "buzzerDisabled",
         "dryMode",
         "airWashMode",

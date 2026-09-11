@@ -189,13 +189,32 @@ delivery means duplicates, and a delta applied twice is not always harmless.
 **Still unproven:** recovery after a long disconnection, and what happens when
 credentials expire mid-cycle. Both need hours of running rather than minutes.
 
-**The full water tank has a phase number nobody has written down.** Haier's own
-translations carry `PHASE_ERROR_FULL_TANK: Full tank` and a tumble-dryer
-notification, so the condition is reported in `prPhase` - but the community's
-map records 8, 12 and 17 only as "unknown" and one of them is it. The service
-journals every changed raw value, so the next full tank identifies itself. When
-it does: add it to the dryer profile, raise it as an event, and send it
-upstream - `pyhOn` has had it as "unknown" for years.
+**~~The full water tank has a phase number nobody has written down.~~** Found,
+2026-09-11 at 22:07:45 - and it was not a phase. One pushed update, the moment
+the machine's own alarm sounded:
+
+    pause 0 -> 1,  message 0 -> 4,  machMode 2 -> 3      (prPhase stayed at 19)
+
+And it cleared ten minutes later, the moment the tank was emptied and the dryer
+restarted - the exact mirror, again in a single push:
+
+    pause 1 -> 0,  message 4 -> 0,  machMode 3 -> 2
+
+`message` is the dryer's notification channel: 4 is the full tank, and 1 -
+arriving together with `ironingStatus 1` - is "lightweight items are dry". The
+reasoning from Haier's `PHASE_ERROR_FULL_TANK` string to the community's
+"unknown" phases 8, 12 and 17 was plausible and wrong, which is the whole
+argument for recording before interpreting. The tank now raises
+`NEEDS_EMPTYING`; see `connector/profiles.py` for the observation it rests on.
+
+Two lessons worth keeping. **The journal built to catch this missed it.**
+`message` was not on the privacy allow-list, so it was scrubbed before the
+journal ever saw it, and the service recorded only "paused". It was caught
+because the client library happens to log raw pushes. Anything left off the
+allow-list is also something the journal cannot see - add fields there with that
+in mind. And **it is worth sending upstream**: `pyhOn` has no mapping for
+`message` on tumble dryers, and the phases it lists as "unknown" are still
+unknown.
 
 ## Conventions
 

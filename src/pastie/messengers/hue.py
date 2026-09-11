@@ -206,6 +206,11 @@ class HueMessenger:
                 default="Green",
                 choices=tuple(COLOURS),
                 per_event=True,
+                per_event_defaults={
+                    "fault": "Red",
+                    "needs_emptying": "Cyan",
+                    "maintenance_due": "Blue",
+                },
                 help="So you can tell what happened from the next room, without going to look",
             ),
             Setting("brightness", "Brightness", Kind.NUMBER, default=100),

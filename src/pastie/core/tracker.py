@@ -83,6 +83,7 @@ class Tracker:
             if first_of_session
             else self._live_events(snapshot, memory)
         )
+        events.extend(self._attention_events(snapshot, memory))
         events.extend(self._maintenance_events(snapshot))
 
         self._remember(snapshot, memory)
@@ -185,6 +186,34 @@ class Tracker:
             )
 
         return events
+
+    def _attention_events(self, snapshot: Snapshot, memory: ApplianceMemory) -> list[Event]:
+        """The machine has stopped and is waiting for somebody.
+
+        Reported whenever it *appears* - on the first reading of a session as
+        well as a live one, which is a deliberate exception to the rule that a
+        first reading announces nothing. That rule exists because a completion
+        seen at startup may be days old. A full tank seen at startup is not old
+        news: the dryer is sitting there stopped, now, and will stay stopped
+        until somebody goes. Memory is what stops it being said twice.
+
+        Keyed by the minute it appeared rather than by the cycle, because a tank
+        can fill twice in one load and the second time is as urgent as the first.
+        """
+        if not snapshot.attention or snapshot.attention == memory.attention:
+            return []
+        return [
+            Event(
+                kind=EventKind.NEEDS_EMPTYING,
+                appliance_id=snapshot.appliance_id,
+                at=snapshot.observed_at,
+                key=(
+                    f"{snapshot.appliance_id}|needs_emptying|{snapshot.observed_at:%Y-%m-%dT%H:%M}"
+                ),
+                message=f"{_subject(snapshot)} has stopped - {snapshot.attention}.",
+                detail={"what": snapshot.attention},
+            )
+        ]
 
     def _maintenance_events(self, snapshot: Snapshot) -> list[Event]:
         """Service intervals the appliance keeps for itself.

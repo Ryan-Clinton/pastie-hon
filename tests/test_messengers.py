@@ -328,19 +328,24 @@ async def test_an_alert_with_no_override_uses_the_usual_colour() -> None:
 
 
 async def test_a_blank_override_means_no_opinion_not_an_empty_answer() -> None:
-    """An empty box on the settings screen must not blank the real setting."""
+    """An empty box on the settings screen must not blank the real setting.
+
+    Uses a finished cycle because it has no default of its own, so blank has to
+    fall back to the usual colour. Alerts that do have one - a fault is red -
+    fall back to that instead; see tests/test_attention.py.
+    """
     bridge = FakeBridge("bridge", "key")
     runner = MessengerRunner({"hue": hue_with(bridge)})
 
     await runner.deliver(
-        event_of(EventKind.FAULT),
+        event_of(EventKind.CYCLE_FINISHED),
         {
             "hue": {
                 "enabled": True,
                 "light": "light-1",
                 "seconds": 0,
                 "colour": "Orange",
-                "when": {"fault": {"colour": ""}},
+                "when": {"cycle_finished": {"colour": ""}},
             }
         },
     )

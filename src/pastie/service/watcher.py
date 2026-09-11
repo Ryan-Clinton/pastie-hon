@@ -87,6 +87,7 @@ class ApplianceStatus:
     door_open: bool | None = None
     remote_allowed: bool | None = None
     fault_code: str | None = None
+    attention: str | None = None
     cycle_count: int | None = None
     maintenance: list[dict[str, Any]] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
@@ -112,6 +113,7 @@ class ApplianceStatus:
             door_open=snapshot.door_open,
             remote_allowed=snapshot.remote_allowed,
             fault_code=snapshot.fault_code,
+            attention=snapshot.attention,
             cycle_count=snapshot.cycle_count,
             maintenance=[
                 {

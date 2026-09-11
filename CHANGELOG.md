@@ -36,20 +36,28 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Cleaning reminders are alerts now.** The appliance keeps its own service
   schedule — filter every 15 cycles, drum every 100 — and Pastie already read
   it, but nothing was ever done with it.
-- **`NEEDS_EMPTYING`**, for a machine that has stopped and is waiting for
-  somebody. The full water tank will raise it once its phase number is known;
-  the journal is what will supply that.
+- **A full water tank alert.** The HD90 reports it as notification
+  `message 4`, pausing itself in the same pushed update, and it raises
+  `NEEDS_EMPTYING` as soon as it appears - including at startup, a deliberate
+  exception to "the first reading announces nothing", because a dryer standing
+  stopped is not old news - and again if the tank fills twice in one load.
+  Found by watching the real machine, not by reading Haier's strings: those
+  suggested a phase number, and it is not one.
 
 ### Fixed
 
+- **Faults flashed green.** Replacing Hue's hard-coded "faults are red" with
+  per-alert settings left no default behind it, so every alert looked like a
+  finished cycle unless somebody configured otherwise - and a full tank would
+  have been announced with the "finished" sentence. Each alert now carries a
+  default of its own, beneath whatever the user chooses.
+- **The change journal could not see notification codes.** `message` was not on
+  the allow-list, so the journal watched the tank fill and wrote down "paused".
 - **The mouse wheel changed dropdown values.** Tk cycles a combobox while the
   pointer is merely over it, so scrolling the settings page quietly rewrote
   saved choices, and scrolling the appliance page changed the programme about to
   be started. Found by scrolling past Temperature and watching it go from High
   to Middle.
-
-### Fixed
-
 - **The Settings tab was empty.** Nothing ever asked the service for the
   settings; `_draw_messengers` was written and tested by being called directly,
   so the drawing worked and was unreachable.

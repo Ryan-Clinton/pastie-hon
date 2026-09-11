@@ -121,7 +121,18 @@ class CastMessenger:
                 Kind.TEXT,
                 default="The tumble dryer has finished.",
                 per_event=True,
-                help="A full tank and a finished cycle deserve different sentences",
+                # "{message}" is the event's own sentence - "The tumble dryer has
+                # stopped - the water tank is full." A sentence written for a
+                # finished cycle is not the right thing to say about a full tank.
+                per_event_defaults={
+                    "fault": "{message}",
+                    "needs_emptying": "{message}",
+                    "maintenance_due": "{message}",
+                },
+                help=(
+                    "A full tank and a finished cycle deserve different sentences. "
+                    "{message} is replaced with Pastie's own description of what happened"
+                ),
             ),
             Setting(
                 "volume",
@@ -145,7 +156,9 @@ class CastMessenger:
         # The configured sentence wins over the event's own wording: people
         # choose what their house says. An event with no configured text - a
         # fault, most likely - falls back to the event's own message.
-        text = str(config.get("text") or event.message)
+        # `replace`, not `format`: a stray brace in somebody's own sentence must
+        # not turn an announcement into a KeyError.
+        text = str(config.get("text") or event.message).replace("{message}", event.message)
 
         async with self._locks.for_target(device):
             try:

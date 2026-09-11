@@ -69,6 +69,11 @@ class Setting:
     #: `MessengerRunner` applies the override. The messenger itself is none the
     #: wiser: it receives one config and does as it is told.
     per_event: bool = False
+    #: What this setting should be for a particular alert when the user has not
+    #: said, keyed by event kind. Without these, every alert looked like a
+    #: finished cycle unless somebody configured otherwise - faults flashed
+    #: green, and a full tank was announced with the "finished" sentence.
+    per_event_defaults: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -141,7 +146,19 @@ def sample_event(message: str = "This is a test from Pastie.") -> Event:
 OVERRIDES = "when"
 
 
-def for_event(config: Mapping[str, Any], event: Event) -> dict[str, Any]:
+def per_event_defaults(messenger: Messenger, event: Event) -> dict[str, Any]:
+    """The messenger's own defaults for this kind of alert."""
+    kind = event.kind.value
+    return {
+        setting.key: setting.per_event_defaults[kind]
+        for setting in messenger.settings()
+        if kind in setting.per_event_defaults
+    }
+
+
+def for_event(
+    config: Mapping[str, Any], event: Event, defaults: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
     """A messenger's settings as they apply to *this* alert.
 
     Overrides live under `when`, keyed by event kind:
@@ -152,15 +169,19 @@ def for_event(config: Mapping[str, Any], event: Event) -> dict[str, Any]:
     is: a rule every author has to remember is a rule that gets forgotten. A
     messenger receives one flat config and cannot tell the difference.
     """
+    # Order matters: the usual setting, then the messenger's default for this
+    # kind of alert, then whatever the user chose for it. Each layer only speaks
+    # where it has an opinion.
+    merged = {**config, **(defaults or {})}
     overrides = config.get(OVERRIDES)
     if not isinstance(overrides, dict):
-        return dict(config)
+        return merged
     wanted = overrides.get(event.kind.value)
     if not isinstance(wanted, dict):
-        return dict(config)
+        return merged
     # An override that is blank means "no opinion, use the usual one" - which is
     # what an empty box on the settings screen should mean.
-    return {**config, **{key: value for key, value in wanted.items() if value not in (None, "")}}
+    return {**merged, **{key: value for key, value in wanted.items() if value not in (None, "")}}
 
 
 def redact(value: str | None, keep: int = 4) -> str:
@@ -204,7 +225,11 @@ class MessengerRunner:
         is not an error worth an alert.
         """
         jobs = [
-            self._run(messenger, event, for_event(configs[name], event))
+            self._run(
+                messenger,
+                event,
+                for_event(configs[name], event, per_event_defaults(messenger, event)),
+            )
             for name, messenger in self._messengers.items()
             if configs.get(name, {}).get("enabled")
         ]

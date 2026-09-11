@@ -41,6 +41,9 @@ class ApplianceMemory:
     cycle_count: int | None = None
     last_running_at: datetime | None = None
     fingerprint: str | None = None
+    #: What the machine was waiting on at the last reading. Kept so a restart
+    #: while the tank is still full does not announce it a second time.
+    attention: str | None = None
 
     def to_json(self) -> dict[str, Any]:
         data = asdict(self)
@@ -66,6 +69,7 @@ class ApplianceMemory:
             cycle_count=count if isinstance(count, int) else None,
             last_running_at=_parse_time(data.get("last_running_at")),
             fingerprint=data.get("fingerprint") or None,
+            attention=data.get("attention") or None,
         )
 
     def updated_with(self, snapshot: Snapshot) -> ApplianceMemory:
@@ -89,6 +93,9 @@ class ApplianceMemory:
                 else self.last_running_at
             ),
             fingerprint=snapshot.fingerprint,
+            # Not carried forward: the tank being emptied is exactly the change
+            # that has to be recorded, so the next fill is news again.
+            attention=snapshot.attention,
         )
 
 

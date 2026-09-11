@@ -130,6 +130,8 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"  remaining   {appliance.get('remaining')}")
         if appliance.get("remote_allowed") is False:
             print("  remote      not armed - turn the dial to the remote position")
+        if appliance.get("attention"):
+            print(f"  waiting     {appliance['attention']}")
         if appliance.get("fault_code"):
             print(f"  fault       {appliance['fault_code']}")
         for item in appliance.get("maintenance", []):

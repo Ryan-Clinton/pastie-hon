@@ -108,11 +108,15 @@ RUNNING = {"machMode": "2", "remainingTimeMM": "45", "dryTimeMM": "90", "remoteC
 NEARLY = {"machMode": "2", "remainingTimeMM": "8", "dryTimeMM": "90", "remoteCtrValid": "1"}
 FINISHED = {"machMode": "7", "remainingTimeMM": "0", "dryTimeMM": "90", "remoteCtrValid": "0"}
 FAULTED = {"machMode": "6", "remainingTimeMM": "0", "dryTimeMM": "90", "errors": "E4"}
+#: The full water tank, as the HD90 reported it on 2026-09-11: the machine pauses
+#: itself and raises notification 4. prPhase does not move.
+TANK_FULL = {**RUNNING, "machMode": "3", "pause": "1", "message": "4", "prPhase": "19"}
+EMPTIED = {**RUNNING, "machMode": "2", "pause": "0", "message": "0", "prPhase": "19"}
 
 
 def scenarios() -> dict[str, Scenario]:
     """Every scenario the demo can run, in the order they are worth watching."""
-    ordered = (_cycle(), _gap(), _noise(), _ignored(), _oven())
+    ordered = (_cycle(), _gap(), _tank(), _noise(), _ignored(), _oven())
     return {scenario.key: scenario for scenario in ordered}
 
 
@@ -188,6 +192,27 @@ def _ignored() -> Scenario:
             Send(1, stop_programme(), accepted=True, note="Haier takes the message"),
             Look(1.2, RUNNING, counter=3, note="Still running"),
             Look(1.5, RUNNING, counter=3, note="Still running, and the deadline passes"),
+        ],
+    )
+
+
+def _tank() -> Scenario:
+    return Scenario(
+        key="tank",
+        title="The water tank fills mid-cycle - twice",
+        why=(
+            "The machine pauses itself and waits, so being told an hour later is "
+            "the same as not being told. Recorded on the real dryer: one pushed "
+            "update carrying pause 0->1, message 0->4 and machMode 2->3. The "
+            "second fill in the same load is as urgent as the first, so it is "
+            "announced again - but a reading that still says full is not."
+        ),
+        steps=[
+            Look(0, RUNNING, counter=3, note="Drying"),
+            Look(40, TANK_FULL, counter=3, note="The machine's own alarm goes off"),
+            Look(42, TANK_FULL, counter=3, note="Still full. Already said."),
+            Look(45, EMPTIED, counter=3, note="Emptied, and started again"),
+            Look(95, TANK_FULL, counter=3, note="Full again, same load"),
         ],
     )
 
@@ -286,6 +311,8 @@ def _describe(snapshot: Any) -> str:
         bits.append(snapshot.display_remaining())
     if snapshot.fault_code:
         bits.append(f"fault {snapshot.fault_code}")
+    if snapshot.attention:
+        bits.append(f"waiting: {snapshot.attention}")
     if not snapshot.is_verified:
         bits.append("unverified - raw only")
     return ", ".join(bits)

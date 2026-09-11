@@ -49,6 +49,10 @@ class Profile:
     #: Commands confirmed to work on real hardware of this type. Anything not
     #: listed here is not offered, whatever Haier's data claims is available.
     commands: frozenset[str] = frozenset()
+    #: Notification code -> what somebody needs to do about it. Only codes that
+    #: stop the machine and wait for a person belong here; each one confirmed
+    #: against real hardware, never inferred from a translation file.
+    messages: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def trust(self) -> Trust:
@@ -58,6 +62,17 @@ class Profile:
         if not self.states_verified or machine_mode is None:
             return ApplianceState.UNKNOWN
         return self.states.get(str(machine_mode), ApplianceState.UNKNOWN)
+
+    def attention_for(self, code: str | None) -> str | None:
+        """What the machine is waiting for, if its notification code says.
+
+        Unverified appliances get nothing, for the same reason they get no
+        interpreted state: a 4 meaning "empty the tank" on a dryer is no reason
+        to tell the owner of an oven to go and empty something.
+        """
+        if not self.states_verified or code is None:
+            return None
+        return self.messages.get(str(code).strip())
 
     def programme_for(self, name: str | None) -> str | None:
         if not name or name.lower() in _NO_PROGRAMME:
@@ -145,6 +160,25 @@ TUMBLE_DRYER = Profile(
     # Both confirmed against the machine. `stopProgram` is in the list because it
     # was tested - and the test is what proved it can be accepted and ignored.
     commands=frozenset({"startProgram", "stopProgram"}),
+    # Observed 2026-09-11, 22:07:45, in a single pushed update, the moment the
+    # machine's own tank alarm sounded:
+    #
+    #     pause 0 -> 1,  message 0 -> 4,  machMode 2 -> 3
+    #
+    # prPhase stayed at 19 throughout. Haier's translations carry a
+    # PHASE_ERROR_FULL_TANK string, which led to a guess that the tank was one of
+    # the community's "unknown" phases 8, 12 or 17. On this machine it is not a
+    # phase at all.
+    #
+    # And it cleared just as cleanly, the moment the tank was emptied and the
+    # machine restarted - 22:17:59, one pushed update, the exact mirror:
+    #
+    #     pause 1 -> 0,  message 4 -> 0,  machMode 3 -> 2
+    #
+    # Also seen, and deliberately *not* listed because nothing is waiting on a
+    # person: message 1, arriving with ironingStatus 1 and clearing two minutes
+    # later - Haier's "lightweight items are dry" notification.
+    messages={"4": "the water tank is full"},
 )
 
 

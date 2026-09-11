@@ -452,7 +452,7 @@ class App(tk.Tk):
         ).pack(anchor="w", pady=(12, 2))
         tk.Label(
             card,
-            text="Leave blank to use the settings above.",
+            text="Leave blank for Pastie's default for that alert.",
             bg=CARD,
             fg=MUTED,
             font=("Segoe UI", 8),
@@ -772,6 +772,8 @@ class App(tk.Tk):
         if appliance.get("programme"):
             lines.append(f"Programme   {appliance['programme']}")
         lines.append(f"Remaining   {appliance.get('remaining', 'unknown')}")
+        if appliance.get("attention"):
+            lines.append(f"Waiting     {appliance['attention']}")
         if appliance.get("fault_code"):
             lines.append(f"Fault       {appliance['fault_code']}")
         for item in appliance.get("maintenance", []):

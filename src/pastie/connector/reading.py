@@ -109,6 +109,7 @@ def translate(reading: RawReading, profile: Profile) -> Snapshot:
         door_open=_flag(reading.parameters.get("doorStatus")),
         remote_allowed=_flag(reading.parameters.get("remoteCtrValid")),
         fault_code=_fault(reading, profile, state),
+        attention=profile.attention_for(reading.parameters.get("message")),
         cycle_count=_counter(reading.statistics.get("programsCounter")),
         maintenance=_maintenance(reading.statistics),
         raw=_diagnostics(reading, profile),
