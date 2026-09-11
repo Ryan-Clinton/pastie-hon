@@ -11,7 +11,7 @@ their full text and any NOTICE file to be shipped alongside the binary. Where a
 package below is Apache-2.0, its LICENSE and NOTICE files are included in the
 distribution.
 
-Generated: 2026-09-04
+Generated: 2026-09-11
 
 
 aiohappyeyeballs 2.7.1
@@ -84,7 +84,7 @@ ifaddr 0.2.0
     Author  : Stefan C. Mueller
     Home    : https://github.com/pydron/ifaddr
 
-multidict 6.7.1
+multidict 6.8.0
     Licence : Apache License 2.0
     Author  : Andrew Svetlov
     Home    : https://github.com/aio-libs/multidict

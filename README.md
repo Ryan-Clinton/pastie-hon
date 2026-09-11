@@ -43,7 +43,7 @@ You don't need a dryer, an hOn account, or a network to see whether any of this
 is real:
 
 ```
-$ pip install -e .
+$ pip install -e . -c constraints.txt
 $ pastie demo gap
 ```
 
@@ -70,12 +70,13 @@ brain and the **real** command tracker:
   2 event(s), 1 worth interrupting somebody for.
 ```
 
-Five scenarios, and every one is a case that is easy to get wrong:
+Six scenarios, and every one is a case that is easy to get wrong:
 
 | `pastie demo ...` | What it shows |
 |---|---|
 | `cycle` | A whole load. One announcement, and the first reading deliberately silent |
 | `gap` | The one above — a completion nobody watched, reported as a gap |
+| `tank` | The water tank filling mid-cycle, twice — recorded off the real dryer |
 | `noise` | The same update twice and a poll two minutes stale. Still one announcement |
 | `ignored` | Haier accepting a stop command the machine then ignores |
 | `unverified` | An oven reporting mode 6, detected and named but never interpreted |
@@ -225,7 +226,7 @@ Windows, Python 3.11 or newer.
 git clone https://github.com/Ryan-Clinton/pastie-hon
 cd pastie-hon
 python -m venv .venv
-.venv\Scripts\pip install -e .
+.venv\Scripts\pip install -e . -c constraints.txt
 
 .venv\Scripts\pastie login      # hOn email and password, encrypted with DPAPI
 .venv\Scripts\pastie service    # the background half - leave it running
@@ -314,8 +315,8 @@ notifications, and a plain Windows desktop notification.
 ## Developing
 
 ```powershell
-pip install -e ".[dev]"
-pytest          # 177 tests, no appliance required
+pip install -e ".[dev]" -c constraints.txt
+pytest          # 216 tests, no appliance required
 ruff check .
 ruff format --check src tests scripts
 mypy

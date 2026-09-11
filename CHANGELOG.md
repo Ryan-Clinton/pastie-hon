@@ -12,8 +12,9 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **`pastie demo`** — replays recorded readings through the real connector, the
   real brain and the real command tracker, with no appliance, no hOn account and
-  no network. Five scenarios, each one a case that is easy to get wrong: a
-  watched cycle, a completion nobody saw, duplicate and stale updates, a command
+  no network. Six scenarios, each one a case that is easy to get wrong: a
+  watched cycle, a completion nobody saw, a tank filling twice in one load,
+  duplicate and stale updates, a command
   Haier accepted and the machine ignored, and an unverified appliance. Every
   claim the narration makes is pinned by a test, so the demonstration cannot
   drift away from the code and start lying.
@@ -46,6 +47,10 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Only the direct dependencies were pinned.** CI resolved `multidict` 6.8.0
+  where the licence notices had been generated against 6.7.1, and the notices
+  check failed on a commit that changed no dependency at all. `constraints.txt`
+  now locks the whole resolved set, and CI installs with it.
 - **Faults flashed green.** Replacing Hue's hard-coded "faults are red" with
   per-alert settings left no default behind it, so every alert looked like a
   finished cycle unless somebody configured otherwise - and a full tank would

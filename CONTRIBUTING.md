@@ -15,10 +15,11 @@ Python 3.11 or newer (PyChromecast needs it).
 git clone <this repo>
 cd pastie
 python -m venv .venv
-.venv\Scripts\pip install -e .[dev]
+.venv\Scripts\pip install -e ".[dev]" -c constraints.txt
 ```
 
-Dependencies and their exact versions live in `pyproject.toml`. Please don't
+Direct dependencies and their exact versions live in `pyproject.toml`; everything they
+pull in is locked in `constraints.txt`, which is why the install line above passes it. Please don't
 `pip install` things ad hoc — if two of us clone this a month apart we need to be
 running the same software, or "works on mine" becomes meaningless.
 

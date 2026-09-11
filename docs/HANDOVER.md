@@ -38,7 +38,7 @@ Nothing has been released. The changelog dates are when work landed.
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\pip install -e ".[dev]"
+.venv\Scripts\pip install -e ".[dev]" -c constraints.txt
 
 pytest -q --cov=pastie --cov-report=term-missing
 ruff check .
@@ -116,6 +116,13 @@ client is indistinguishable from a local bug.
 
 `awsiotsdk` and `awscrt` are pinned **together**. A mismatched pair has already
 broken `pyhon-revived` once.
+
+**Pinning the direct dependencies was not enough.** On 2026-09-11 CI resolved
+`multidict` 6.8.0 where the machine that generated the licence notices held
+6.7.1 - a dependency of a dependency, pinned by nothing - and the notices check
+failed on a commit that changed no dependency at all. `constraints.txt` now locks
+the whole resolved set, and CI installs with it. Regenerate it from a clean
+virtual environment, never a working one; its header says how.
 
 `THIRD_PARTY_NOTICES.txt` is generated from the pinned set by
 `scripts/third_party_notices.py`, never edited by hand, and CI checks it on

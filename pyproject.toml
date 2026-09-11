@@ -27,6 +27,9 @@ classifiers = [
 #
 # awsiotsdk and awscrt are pinned TOGETHER on purpose: a mismatched pair has
 # already broken pyhon-revived once.
+#
+# These pin only what Pastie asks for directly. Everything they pull in is
+# locked in constraints.txt - install with `-c constraints.txt`, as CI does.
 dependencies = [
     "pyhon-revived==0.19.2",
     "awsiotsdk==1.31.0",
