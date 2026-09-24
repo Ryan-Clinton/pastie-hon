@@ -115,6 +115,12 @@ class App(tk.Tk):
         self._starting_service = starting_service
         self._work = Work()
         self._appliance: str | None = None
+        self._programmes: dict[str, dict[str, Any]] = {}
+        self._programme_ids: dict[str, str] = {}
+        #: Per dropdown, label -> value, for the settings that can be changed.
+        self._option_ids: dict[ttk.Combobox, dict[str, str]] = {}
+        self._options_shown: str | None = None
+        self._fallback: dict[str, list[dict[str, Any]]] = {}
         self._fields: dict[str, dict[str, tk.Variable]] = {}
         self._target_boxes: dict[str, _TargetPicker] = {}
         self._overrides: dict[str, dict[str, dict[str, tk.Variable]]] = {}
@@ -217,6 +223,8 @@ class App(tk.Tk):
         self.programme_box = self._dropdown(controls, "Programme")
         self.dryness_box = self._dropdown(controls, "Dryness")
         self.temperature_box = self._dropdown(controls, "Temperature")
+        self.time_box = self._dropdown(controls, "Time")
+        self.programme_box.bind("<<ComboboxSelected>>", self._programme_chosen)
 
         buttons = tk.Frame(controls, bg=CARD)
         buttons.pack(fill="x", pady=(10, 0))
@@ -651,12 +659,15 @@ class App(tk.Tk):
         if not self._appliance:
             return
         extra: dict[str, Any] = {}
-        dryness = self._dry_ids.get(_chosen(self.dryness_box))
-        if dryness:
-            extra["dryLevel"] = dryness
-        temperature = self._temp_ids.get(_chosen(self.temperature_box))
-        if temperature:
-            extra["tempLevel"] = temperature
+        for box, key in (
+            (self.dryness_box, "dryLevel"),
+            (self.temperature_box, "tempLevel"),
+            (self.time_box, "dryTimeMM"),
+        ):
+            # Only what can be changed is sent; a fixed setting is the programme's own.
+            value = self._option_ids.get(box, {}).get(_chosen(box))
+            if value:
+                extra[key] = value
         programme = self._programme_ids.get(_chosen(self.programme_box), "")
         appliance = self._appliance
         self._work.run("command", lambda: self._client.start(appliance, programme, **extra))
@@ -794,23 +805,57 @@ class App(tk.Tk):
         if status.get("command"):
             self.command_label.configure(text="\n".join(status["command"]))
 
-    def _show_controls(self, appliance: dict[str, Any]) -> None:
-        self._programme_ids = {
-            item["label"]: item["id"] for item in appliance.get("programmes", [])
-        }
-        self._dry_ids = {item["label"]: item["id"] for item in appliance.get("dry_levels", [])}
-        self._temp_ids = {item["label"]: item["id"] for item in appliance.get("temperatures", [])}
-
-        for box, ids in (
-            (self.programme_box, self._programme_ids),
-            (self.dryness_box, self._dry_ids),
-            (self.temperature_box, self._temp_ids),
+    def _programme_chosen(self, *_event: object) -> None:
+        """Fill the setting dropdowns with what the chosen programme allows."""
+        chosen = _chosen(self.programme_box)
+        item = self._programmes.get(chosen, {})
+        for box, key, empty in (
+            (self.dryness_box, "dry_levels", "Set by the time"),
+            (self.temperature_box, "temperatures", ""),
+            (self.time_box, "durations", "Until dry"),
         ):
-            names = list(ids)
-            if list(box["values"]) != names:
-                box["values"] = names
-                if names and not _chosen(box):
-                    box.set(names[0])
+            options = item.get(key)
+            if options is None:  # a service from before programmes carried their own
+                options = self._fallback.get(key, [])
+            self._fill(box, options, empty)
+        self._options_shown = chosen
+
+    def _fill(self, box: ttk.Combobox, options: list[dict[str, Any]], empty: str) -> None:
+        adjustable = len(options) > 1
+        ids: dict[str, str] = {}
+        pick = ""
+        for option in options:
+            label = str(option["label"])
+            if not adjustable:
+                label += " (fixed)"
+            elif option.get("recommended"):
+                label += " (recommended)"
+            ids[label] = str(option["id"])
+            if option.get("recommended") or not pick:
+                pick = label
+        self._option_ids[box] = ids if adjustable else {}
+        box.configure(state="readonly")
+        box["values"] = list(ids)
+        box.set(pick or empty)
+        box.configure(state="readonly" if adjustable else "disabled")
+
+    def _show_controls(self, appliance: dict[str, Any]) -> None:
+        self._programmes = {item["label"]: item for item in appliance.get("programmes", [])}
+        self._programme_ids = {label: item["id"] for label, item in self._programmes.items()}
+        self._fallback = {
+            "dry_levels": appliance.get("dry_levels", []),
+            "temperatures": appliance.get("temperatures", []),
+        }
+        names = list(self._programmes)
+        if list(self.programme_box["values"]) != names:
+            self.programme_box["values"] = names
+            if names and _chosen(self.programme_box) not in names:
+                self.programme_box.set(names[0])
+            self._options_shown = None
+        # Refilled only when the programme changes, so a refresh every few
+        # seconds never undoes a choice somebody has just made.
+        if self._options_shown != _chosen(self.programme_box):
+            self._programme_chosen()
 
         can_start = "startProgram" in appliance.get("commands", [])
         armed = appliance.get("remote_allowed")

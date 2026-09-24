@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from pastie.connector.hon import CommandRejectedError, HonConnector
 from pastie.connector.profiles import TUMBLE_DRYER, for_appliance, unverified
 from pastie.connector.reading import RawReading, translate
 from pastie.connector.scrub import scrub_identity, scrub_parameters, scrub_statistics
@@ -143,6 +144,38 @@ def test_an_unknown_appliance_type_still_gets_a_profile() -> None:
 
 def test_the_dryer_only_offers_commands_that_were_tested() -> None:
     assert TUMBLE_DRYER.commands == {"startProgram", "stopProgram"}
+
+
+async def test_a_programme_the_machine_ignores_is_refused_before_it_is_sent() -> None:
+    sent: list[str] = []
+
+    class Command:
+        async def send(self) -> bool:
+            sent.append("startProgram")
+            return True
+
+    class Appliance:
+        unique_id = "dryer"
+        appliance_type = "TD"
+        commands = {"startProgram": Command()}
+        settings: dict[str, object] = {}
+
+    class Client:
+        appliances = [Appliance()]
+
+        async def create(self) -> Client:
+            return self
+
+    connector = HonConnector("user", "secret", client_factory=lambda *_: Client())
+    await connector.connect()
+    appliance_id = next(iter(connector._appliances))
+
+    with pytest.raises(CommandRejectedError, match="Duvet"):
+        await connector.send(appliance_id, "startProgram", {"program": "iot_dry_duvet"})
+    assert sent == []
+
+    await connector.send(appliance_id, "startProgram", {"program": "iot_dry_delicates"})
+    assert sent == ["startProgram"]
 
 
 # ------------------------------------------------------------------ scrub

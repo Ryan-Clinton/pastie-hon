@@ -44,9 +44,23 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stopped is not old news - and again if the tank fills twice in one load.
   Found by watching the real machine, not by reading Haier's strings: those
   suggested a phase number, and it is not one.
+- **The Start menu is the machine's own dial.** The eleven programmes Haier's
+  data marks `dashboard` for the HD90 — the same eleven the manual lists — in
+  dial order, sent as the machine's own `hqd_*` programmes. Sports, Quick dry,
+  Timer and Refresh were missing; Bed linen, Night dry, Rapid 30 and Shirts are
+  gone, because each pointed at a programme this model does not have.
+- **Each programme brings its own choices.** Dryness, temperature and a new
+  Time dropdown are filled from what the chosen programme allows, with its
+  default in Haier's data marked "(recommended)" and selected. A setting the
+  programme fixes is shown as "(fixed)" and not sent.
 
 ### Fixed
 
+- **Duvet was accepted by Haier and ignored by the machine.** The app's
+  `iot_dry_duvet` recipe points at prCode 81, `hqd_quilt` — a programme Haier
+  marks `hidden` for this model. The machine's own Duvet, `hqd_duvet`, started
+  within three seconds when sent remotely. The recipe is now refused before it
+  is sent, with a sentence saying why, via `Profile.remote_start_refused`.
 - **Only the direct dependencies were pinned.** CI resolved `multidict` 6.8.0
   where the licence notices had been generated against 6.7.1, and the notices
   check failed on a commit that changed no dependency at all. `constraints.txt`

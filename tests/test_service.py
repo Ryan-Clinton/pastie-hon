@@ -139,6 +139,61 @@ async def test_the_status_reply_says_what_the_machine_is_doing() -> None:
     assert appliance["trust"] == "verified"
 
 
+async def test_a_programme_the_machine_ignores_remotely_is_not_offered() -> None:
+    watcher = build_watcher(FakeConnector(readings()))
+    await watcher.refresh()
+
+    programmes = watcher.status().to_json()["appliances"][0]["programmes"]
+    offered = {item["label"]: item["id"] for item in programmes}
+
+    assert "iot_dry_duvet" not in offered.values()
+    # Duvet is still offered - as the machine's own programme, which does start.
+    assert offered["Duvet"] == "hqd_duvet"
+    # Still named, for a cycle somebody starts on the dial.
+    assert TUMBLE_DRYER.programme_for("iot_dry_duvet") == "Duvet"
+
+
+async def test_the_menu_is_the_machines_own_dial_in_dial_order() -> None:
+    watcher = build_watcher(FakeConnector(readings()))
+    await watcher.refresh()
+
+    programmes = watcher.status().to_json()["appliances"][0]["programmes"]
+
+    assert [item["label"] for item in programmes] == [
+        "Cotton",
+        "Synthetics",
+        "Mixed load",
+        "Towels",
+        "Sports",
+        "Timer",
+        "Duvet",
+        "Wool",
+        "Delicates",
+        "Quick dry",
+        "Refresh",
+    ]
+
+
+async def test_each_programme_offers_its_own_choices_with_its_default_marked() -> None:
+    watcher = build_watcher(FakeConnector(readings()))
+    await watcher.refresh()
+    programmes = {
+        item["id"]: item for item in watcher.status().to_json()["appliances"][0]["programmes"]
+    }
+
+    def recommended(programme: str, key: str) -> list[str]:
+        return [o["label"] for o in programmes[programme][key] if o["recommended"]]
+
+    assert recommended("hqd_delicate", "dry_levels") == ["Cupboard dry"]
+    assert recommended("hqd_cotton", "dry_levels") == ["Ready to wear"]
+    assert programmes["hqd_cotton"]["durations"] == []  # sensor-driven, no timer
+    assert recommended("hqd_duvet", "durations") == ["60 min"]
+    assert [o["label"] for o in programmes["hqd_wool"]["temperatures"]] == ["Low"]
+    # Cool only where the programme allows it.
+    assert "Cool" in [o["label"] for o in programmes["hqd_timer"]["temperatures"]]
+    assert "Cool" not in [o["label"] for o in programmes["hqd_cotton"]["temperatures"]]
+
+
 async def test_recent_announcements_are_kept_for_the_window() -> None:
     watcher = build_watcher(FakeConnector(readings()))
     for _ in range(4):

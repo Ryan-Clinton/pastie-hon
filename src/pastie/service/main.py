@@ -146,7 +146,7 @@ def register_handlers(service: Service, registry: Any) -> None:
             return Reply.failed("an appliance and a programme are both needed")
         extra = {
             key: arguments[key]
-            for key in ("dryLevel", "tempLevel")
+            for key in ("dryLevel", "tempLevel", "dryTimeMM")
             if arguments.get(key) is not None
         }
         progress = await watcher.send(

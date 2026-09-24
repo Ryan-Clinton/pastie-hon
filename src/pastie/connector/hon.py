@@ -195,6 +195,15 @@ class HonConnector:
             raise CommandRejectedError(
                 f"{command} is not confirmed on a {profile.label}, so Pastie won't send it"
             )
+        programme = arguments.get("program")
+        if command == "startProgram" and programme in profile.remote_start_refused:
+            # Haier would accept it and the machine would ignore it, which the
+            # user only finds out from a twenty-second wait. Say so up front.
+            name = profile.programme_for(str(programme)) or programme
+            raise CommandRejectedError(
+                f"The {profile.label} ignores {name} when it's started remotely. "
+                "Choose it on the dial and press Start there instead."
+            )
 
         for key, value in arguments.items():
             self._apply_setting(appliance, key, value)

@@ -24,6 +24,24 @@ from pastie.core.state import ApplianceState, Trust
 
 
 @dataclass(frozen=True)
+class ProgrammeOptions:
+    """What one programme lets you change, and what it picks if you don't.
+
+    The defaults are the programme's own defaults in Haier's data - the nearest
+    thing there is to a recommendation. A single allowed value means the setting
+    is fixed by the programme and is shown, but not sent.
+    """
+
+    dry_levels: tuple[str, ...] = ()
+    dry_level: str | None = None
+    temperatures: tuple[str, ...] = ()
+    temperature: str | None = None
+    #: Minutes, for the timed programmes. Empty for the sensor-driven ones.
+    durations: tuple[str, ...] = ()
+    duration: str | None = None
+
+
+@dataclass(frozen=True)
 class Profile:
     """A description of one appliance type, as far as anyone has confirmed it.
 
@@ -49,6 +67,13 @@ class Profile:
     #: Commands confirmed to work on real hardware of this type. Anything not
     #: listed here is not offered, whatever Haier's data claims is available.
     commands: frozenset[str] = frozenset()
+    #: Programmes the machine is known to ignore when started remotely. They
+    #: keep their names in `programmes`, so a cycle started on the dial still
+    #: reads properly, but they are not offered and not sent.
+    remote_start_refused: frozenset[str] = frozenset()
+    #: What the Start dropdown offers, in the order it offers them, and each
+    #: programme's own choices. Empty means nothing can be started from Pastie.
+    startable: Mapping[str, ProgrammeOptions] = field(default_factory=dict)
     #: Notification code -> what somebody needs to do about it. Only codes that
     #: stop the machine and wait for a person belong here; each one confirmed
     #: against real hardware, never inferred from a translation file.
@@ -84,6 +109,31 @@ _NO_PROGRAMME = {"no program", "no programme", "none", ""}
 
 
 # --------------------------------------------------------------------- dryer
+
+_HALF_HOURS = ("30", "60", "90", "120", "150")
+
+
+def _sensed(dry_level: str) -> ProgrammeOptions:
+    """A programme that stops when the sensor says dry: dryness and heat to choose."""
+    return ProgrammeOptions(
+        dry_levels=("12", "13", "14"),
+        dry_level=dry_level,
+        temperatures=("2", "3", "4"),
+        temperature="4",
+    )
+
+
+def _timed(
+    temperatures: tuple[str, ...], temperature: str, durations: tuple[str, ...], duration: str
+) -> ProgrammeOptions:
+    """A programme that runs for a set time: heat and minutes to choose."""
+    return ProgrammeOptions(
+        temperatures=temperatures,
+        temperature=temperature,
+        durations=durations,
+        duration=duration,
+    )
+
 
 #: Confirmed on a Haier HD90-A2959R-UK over repeated cycles, and cross-checked
 #: against the community's shared constants.
@@ -141,9 +191,43 @@ TUMBLE_DRYER = Profile(
         "iot_dry_rapid_59": "Rapid 59",
         "iot_dry_shirts": "Shirts",
         "iot_dry_duvet": "Duvet",
+        "hqd_duvet": "Duvet",
         "hqd_night_dry": "Night dry",
         "hqd_mix": "Mixed load",
         "hqd_cotton": "Cotton",
+        "hqd_synthetics": "Synthetics",
+        "hqd_sports": "Sports",
+        "hqd_timer": "Timer",
+        "hqd_delicate": "Delicates",
+        "hqd_quick_dry": "Quick dry",
+        "hqd_i_refresh": "Refresh",
+    },
+    # The eleven programmes on this machine's own dial, in dial order. Haier's
+    # data lists 59 dryer programmes across its range; these are the eleven it
+    # marks "dashboard" for this model, which is also the count the manual gives.
+    # They are the machine's own (hqd_*) programmes rather than the app's iot_dry_*
+    # recipes, because a recipe can point at a programme this model doesn't have -
+    # which is exactly what went wrong with Duvet. Options and defaults were read
+    # from the account's own programme data, 2026-09-24.
+    startable={
+        "hqd_cotton": _sensed("14"),
+        "hqd_synthetics": _sensed("13"),
+        "hqd_mix": _sensed("14"),
+        "hqd_towel": _sensed("14"),
+        "hqd_sports": _sensed("14"),
+        "hqd_timer": _timed(("1", "2", "3", "4"), "4", _HALF_HOURS, "30"),
+        "hqd_duvet": _timed(("2", "3", "4"), "4", _HALF_HOURS, "60"),
+        "hqd_wool": _timed(("2",), "2", ("20", "40", "60", "80", "100"), "20"),
+        "hqd_delicate": _sensed("13"),
+        "hqd_quick_dry": ProgrammeOptions(
+            dry_levels=("12",),
+            dry_level="12",
+            temperatures=("4",),
+            temperature="4",
+            durations=("30",),
+            duration="30",
+        ),
+        "hqd_i_refresh": _timed(("1", "2", "3", "4"), "3", ("10", "20", "30", "40", "50"), "30"),
     },
     dry_levels={
         "0": "No dry",
@@ -153,13 +237,27 @@ TUMBLE_DRYER = Profile(
         "14": "Ready to wear",
         "15": "Extra dry",
     },
-    # No "1" (Cool): the machine rejects it outright - "Allowed: min 2 max 4
-    # step 1 But was: 1" - so offering it only produces a start that quietly
-    # drops the setting. What the appliance refuses, we do not put in a dropdown.
-    temperatures={"2": "Low", "3": "Middle", "4": "High"},
+    # "1" (Cool) is named here but offered only where `startable` allows it
+    # (Timer and Refresh). Most programmes reject it outright - "Allowed: min 2
+    # max 4 step 1 But was: 1" - and a start then quietly drops the setting.
+    # What the appliance refuses, we do not put in a dropdown.
+    temperatures={"1": "Cool", "2": "Low", "3": "Middle", "4": "High"},
     # Both confirmed against the machine. `stopProgram` is in the list because it
     # was tested - and the test is what proved it can be accepted and ignored.
     commands=frozenset({"startProgram", "stopProgram"}),
+    # Observed 2026-09-24, three times running, with the machine switched on and
+    # armed (remoteCtrValid 1): Haier accepted startProgram with iot_dry_duvet,
+    # and the machine sent nothing back at all - no machMode change, no pushed
+    # update. The same session, same arming, started Delicates without trouble.
+    # Setting dryLevel alongside it changed nothing; the programme forces 11.
+    #
+    # Why: the iot_dry_* programmes are app recipes that point at one of the
+    # machine's own hqd_* programmes by prCode. iot_dry_duvet points at 81, which
+    # is hqd_quilt - programFamily "hidden", i.e. not on this model. The machine's
+    # own Duvet is hqd_duvet (prCode 75, dial position 14), and that one started
+    # at once when sent remotely the same evening. So "Duvet" in the dropdown is
+    # hqd_duvet, and the recipe stays refused in case anything still sends it.
+    remote_start_refused=frozenset({"iot_dry_duvet"}),
     # Observed 2026-09-11, 22:07:45, in a single pushed update, the moment the
     # machine's own tank alarm sounded:
     #

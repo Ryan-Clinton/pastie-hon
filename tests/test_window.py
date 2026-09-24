@@ -215,6 +215,55 @@ def test_a_machine_that_is_not_armed_explains_the_dial(window: Any) -> None:
     assert "dial to the remote position" in window.armed_label.cget("text")
 
 
+def _option(value: str, label: str, recommended: bool = False) -> dict[str, Any]:
+    return {"id": value, "label": label, "recommended": recommended}
+
+
+def test_the_settings_follow_the_programme_and_default_to_its_recommendation(
+    window: Any,
+) -> None:
+    programmes = [
+        {
+            "id": "hqd_cotton",
+            "label": "Cotton",
+            "dry_levels": [_option("12", "Iron dry"), _option("14", "Ready to wear", True)],
+            "temperatures": [_option("2", "Low"), _option("4", "High", True)],
+            "durations": [],
+        },
+        {
+            "id": "hqd_wool",
+            "label": "Wool",
+            "dry_levels": [],
+            "temperatures": [_option("2", "Low", True)],
+            "durations": [_option("20", "20 min", True), _option("40", "40 min")],
+        },
+    ]
+    status: dict[str, Any] = {
+        **STATUS,
+        "appliances": [{**STATUS["appliances"][0], "programmes": programmes}],
+    }
+    window._show_status(status)
+    window.programme_box.set("Cotton")
+    window._programme_chosen()
+
+    assert window.dryness_box.get() == "Ready to wear (recommended)"
+    assert window.temperature_box.get() == "High (recommended)"
+    assert window.time_box.get() == "Until dry"
+
+    window.temperature_box.set("Low")
+    window._show_status(status)  # a routine refresh must not undo the choice
+    assert window.temperature_box.get() == "Low"
+
+    window.programme_box.set("Wool")
+    window._programme_chosen()
+
+    assert window.temperature_box.get() == "Low (fixed)"
+    assert str(window.temperature_box.cget("state")) == "disabled"
+    assert window.time_box.get() == "20 min (recommended)"
+    assert window._option_ids[window.temperature_box] == {}  # fixed, so never sent
+    assert window._option_ids[window.time_box]["40 min"] == "40"
+
+
 def test_a_service_that_is_not_running_is_shown_in_the_header(window: Any) -> None:
     from pastie.app.main import Answer
 

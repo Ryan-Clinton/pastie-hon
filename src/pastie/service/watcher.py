@@ -93,7 +93,9 @@ class ApplianceStatus:
     raw: dict[str, Any] = field(default_factory=dict)
     #: What this appliance can be asked to do, and with what - sent from here so
     #: the window never has to hold a list of Haier's programme identifiers.
-    programmes: list[dict[str, str]] = field(default_factory=list)
+    #: Each programme carries its own dryness, temperature and time choices,
+    #: with the programme's default marked `recommended`.
+    programmes: list[dict[str, Any]] = field(default_factory=list)
     dry_levels: list[dict[str, str]] = field(default_factory=list)
     temperatures: list[dict[str, str]] = field(default_factory=list)
     commands: list[str] = field(default_factory=list)
@@ -125,7 +127,7 @@ class ApplianceStatus:
                 for item in snapshot.maintenance
             ],
             raw=dict(snapshot.raw),
-            programmes=_choices(profile.programmes if profile else {}),
+            programmes=_startable(profile) if profile else [],
             dry_levels=_choices(profile.dry_levels if profile else {}),
             temperatures=_choices(profile.temperatures if profile else {}),
             # An unverified appliance offers no commands at all, whatever Haier's
@@ -152,6 +154,36 @@ class Status:
             "recent": self.recent,
             "command": self.command,
         }
+
+
+def _startable(profile: Profile) -> list[dict[str, Any]]:
+    """The Start dropdown: each programme with its own choices, in dial order."""
+    return [
+        {
+            "id": programme,
+            "label": profile.programmes.get(programme, programme),
+            "dry_levels": _options(options.dry_levels, options.dry_level, profile.dry_levels),
+            "temperatures": _options(
+                options.temperatures, options.temperature, profile.temperatures
+            ),
+            "durations": _options(
+                options.durations,
+                options.duration,
+                {minutes: f"{minutes} min" for minutes in options.durations},
+            ),
+        }
+        for programme, options in profile.startable.items()
+        if programme not in profile.remote_start_refused
+    ]
+
+
+def _options(
+    values: tuple[str, ...], default: str | None, names: Mapping[str, str]
+) -> list[dict[str, Any]]:
+    return [
+        {"id": value, "label": names.get(value, value), "recommended": value == default}
+        for value in values
+    ]
 
 
 def _choices(mapping: Mapping[str, str]) -> list[dict[str, str]]:
