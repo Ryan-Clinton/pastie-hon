@@ -714,7 +714,9 @@ class Presenter:
         if appliance.get("trust") != "verified":
             return say("unknown_state", f"{aid}/unknown")
         if status.get("health") == "slow":
-            return say("where_dryer_silent", f"{aid}/silent/{appliance.get('updated_at')}")
+            # Dry: a short line. Departmental: the three-line version (UI-SPEC 6.6).
+            key = "where_dryer_silent" if level == "departmental" else "dryer_offline"
+            return say(key, f"{aid}/silent/{appliance.get('updated_at')}")
 
         detail = status.get("command_detail") or {}
         if (

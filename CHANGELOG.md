@@ -61,6 +61,13 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   messenger's declared settings, as before), About and Diagnostics. It loads
   nothing from the network: a Content-Security-Policy with `connect-src 'none'`,
   and no web address anywhere in the bundle.
+- **The voice reaches everywhere it was specified** (docs/UI-SPEC.md phase 4):
+  reactive asides for a rising estimate, a confirmed start, the first finish of
+  the day, a maintenance count, a recovered gap, an unknown state, a silent
+  dryer and a quiet reconnect; the Departmental ordeal; case files, the Guide,
+  Diagnostics and "why". Tests now also prove every screen still makes sense
+  with every aside removed, that a silent dryer is never called offline, and
+  how the hero is chosen when there is more than one appliance.
 - **The identity comes from the crest** (docs/UI-SPEC.md phase 3, 10.4). A new
   app icon (the shield, a simplified pastie face, and circuit stubs where there
   is room) is drawn natively at 16, 24, 32, 48, 64, 128 and 256 px so it stays

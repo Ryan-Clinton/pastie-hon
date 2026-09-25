@@ -531,3 +531,68 @@ def test_the_poke_is_departmental_and_cooled_down() -> None:
     assert p.poke() is None
     clock.tick(31 * 60)
     assert p.poke() in voice.POKED
+
+
+# ------------------------------------------------------------ phase 4 gaps
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        {},
+        {"remote_allowed": True},
+        RUNNING,
+        {"state": "finished", "programme": "Mixed load", "progress": 1.0},
+        {"state": "paused", "attention": "the water tank is full", "progress": 0.4},
+        {"state": "fault", "fault_code": "E3"},
+    ],
+)
+def test_every_screen_makes_sense_with_every_aside_removed(shape: dict[str, Any]) -> None:
+    """SPEC 20: if Pastie stopped being funny, it would still be a clear utility."""
+    p, clock = presenter(level="departmental")
+    connected(p, clock)
+    hero = p.screen(status(dryer(**shape)))["hero"]
+    hero["aside"] = None
+    hero["meters"] = []
+    assert hero["state_word"] in ("IDLE", "RUNNING", "FINISHED", "PAUSED", "FAULT")
+    assert hero["actions"]["mode"] in ("none", "start", "stop", "not_armed")
+    if hero["state"] == "running":  # paused with no figure honestly shows none
+        assert hero["facts"].get("remaining") or hero["facts"].get("confidence")
+    if hero["severity"] in ("warning", "error"):
+        assert hero["facts"]["lines"]  # the instruction is in the facts, not the aside
+
+
+def test_a_silent_dryer_is_reported_without_a_claim_it_is_offline() -> None:
+    for level, pool in (("dry", "dryer_offline"), ("departmental", "where_dryer_silent")):
+        p, clock = presenter(level=level)
+        connected(p, clock)
+        hero = p.screen(status(dryer(), health="slow"))["hero"]
+        assert any(line.startswith("Not reporting since") for line in hero["facts"]["lines"])
+        assert hero["aside"] in [
+            line.format(name="the tumble dryer", Name="The tumble dryer")
+            for line in voice.ASIDES[pool]
+        ]
+
+
+def test_the_hero_is_the_most_urgent_and_a_pick_holds_for_five_minutes() -> None:
+    p, clock = presenter()
+    connected(p, clock)
+    washer = dryer(id="washer-1", name="washing machine", state="finished", progress=1.0)
+    running = dryer(**RUNNING)
+    assert p.screen(status(washer, running))["hero"]["id"] == "dryer-1"  # running beats finished
+    p.pin("washer-1")
+    assert p.screen(status(washer, running))["hero"]["id"] == "washer-1"
+    clock.tick(6 * 60)
+    assert p.screen(status(washer, running))["hero"]["id"] == "dryer-1"
+
+
+def test_needing_action_outranks_everything_and_the_unverified_never_lead() -> None:
+    p, clock = presenter()
+    connected(p, clock)
+    tank = dryer(
+        id="washer-1", name="washing machine", state="paused", attention="the water tank is full"
+    )
+    stranger = dryer(id="odd-1", name="oven", trust="unverified", state="unknown")
+    screen = p.screen(status(dryer(**RUNNING), tank, stranger))
+    assert screen["hero"]["id"] == "washer-1"
+    assert [c["id"] for c in screen["caseload"]] == ["washer-1", "dryer-1", "odd-1"]
