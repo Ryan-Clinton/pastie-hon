@@ -285,6 +285,18 @@ ORG_CHART = (
     ("App", "tells you what everybody is doing"),
 )
 
+#: One example per personality level, shown in Settings -> Appearance: the same
+#: event in each level's voice (UI-SCREENS 7.4).
+LEVEL_EXAMPLES = (
+    ("plain", "Plain", "Tumble dryer finished."),
+    ("dry", "Dry", "Tumble dryer finished. Its part of the arrangement is complete."),
+    (
+        "departmental",
+        "Departmental",
+        "Tumble dryer finished. The clothes have been transferred to your department.",
+    ),
+)
+
 EMPTY_NO_APPLIANCE = {
     "plain": "No appliance yet.",
     "dry": "No appliance yet. Pastie is ready to administer one.",

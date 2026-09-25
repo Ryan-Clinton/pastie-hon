@@ -52,6 +52,21 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   length, duplicates and borrowed catchphrases. The window remembers which
   line it picked for which event, and the evidence for each cycle's case file,
   in its own file under the user's profile; never the words it showed.
+- **The window is a web page in a native window** (`app/webview.py`, `app/web/`,
+  docs/UI-SPEC.md phase 2). pywebview and Windows' own WebView2 replace the
+  Tkinter window, which is deleted. The page draws the presenter's ScreenState
+  and nothing else: the caseload, the hero with the progress ring and a pose,
+  the facts, the aside, the paper trail, "Why does Pastie say this?", where
+  matters stand, History and case files, the Guide, Settings (drawn from each
+  messenger's declared settings, as before), About and Diagnostics. It loads
+  nothing from the network: a Content-Security-Policy with `connect-src 'none'`,
+  and no web address anywhere in the bundle.
+- **pywebview's local web server is kept firmly off.** It serves a page given as
+  a path from `http://127.0.0.1` even when told not to, and even for absolute
+  paths; the page is therefore always an explicit `file:///` URI. A test opens
+  the real window and checks it owns no listening socket. The bridge also
+  exposes methods only, because pywebview hands every public attribute to the
+  page.
 - **The status reply carries the facts behind its text**: `remaining_minutes`,
   `remaining_settled`, and `command_detail`, the command's progress as data.
   The old text fields stay, so nothing that read them breaks.

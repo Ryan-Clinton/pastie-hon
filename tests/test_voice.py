@@ -36,6 +36,7 @@ def every_line() -> list[str]:
     lines.extend(voice.HISTORY_EMPTY.values())
     lines.extend(voice.EMPTY_NO_APPLIANCE.values())
     lines.extend(voice.ONBOARDING_ASIDES.values())
+    lines.extend(example for _, _, example in voice.LEVEL_EXAMPLES)
     lines.extend([voice.INSTITUTION, voice.INSTITUTION_NOTE, voice.DIVISION])
     for entry in voice.GUIDE:
         lines.extend([entry.title, entry.condition, entry.body])

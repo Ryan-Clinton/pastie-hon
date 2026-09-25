@@ -1,7 +1,8 @@
 # Pastie — the window, redone properly
 
-Status: **draft, revision 4, for audit.** Nothing in this document is built yet
-except where it says so. It covers the desktop window only. The service, the
+Status: **approved 2026-09-25, revision 4; being built** on the
+`feature/window-redesign` branch, one phase per commit (§12). Phases 1 and 2
+are built. Where the build taught us something, the text below says so. It covers the desktop window only. The service, the
 connector, the brain and the messengers don't change, and
 [SPEC.md](SPEC.md) still governs them.
 
@@ -169,17 +170,31 @@ the Windows light/dark setting, and never shows a white system widget.
 
 ### 5.3 The trap, and the rule that closes it
 
-pywebview **starts a local HTTP server automatically when a page is loaded
-from a relative path**, and that can't be switched off. That would be an
-unauthenticated network interface, which SPEC §10 forbids.
+pywebview **starts a local HTTP server automatically when a page is given as a
+path**, and that can't be switched off. That would be an unauthenticated
+network interface, which SPEC §10 forbids.
 
-**Rule:** the page is loaded from an **absolute file path** with
-`webview.start(http_server=False)`. No remote URLs, fonts or scripts, ever.
+**Found while building:** the pywebview documentation says this happens only
+for *relative* paths. It doesn't. With pywebview 6.2.1, an absolute path *and*
+`http_server=False` still served the page from `http://127.0.0.1:<port>`. A
+spike caught it before any UI was built on it.
+
+**Rule:** the page is loaded from an **explicit `file:///` URI**
+(`webview.page_uri()`), never a path, with `webview.start(http_server=False)`.
+No remote URLs, fonts or scripts, ever.
+
+**The bridge exposes methods only.** pywebview hands every *public attribute*
+of the `js_api` object to the page, not just its methods. It also walks into
+them: a native window object stored as a public attribute sent it into endless
+recursion. Everything that isn't a method the page may call is private, and a
+test checks that every public name on the bridge is a method.
 
 **Test (acceptance criterion A7):** with the window open, the window process
-owns no listening TCP or UDP socket. The test is `Get-NetTCPConnection
--State Listen` filtered to the window's PID. It runs in CI on the Windows
-runners.
+owns no listening TCP or UDP socket. `tests/window_probe.py` opens the real
+window in its own process and checks `Get-NetTCPConnection -State Listen`
+against its PID and its children. `tests/test_webview.py` runs it on Windows,
+including CI's Windows runners, and skips only if WebView2 can't start there
+at all.
 
 The page also carries a Content-Security-Policy of `default-src 'self'
 file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file:;

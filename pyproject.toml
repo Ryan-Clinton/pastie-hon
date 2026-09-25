@@ -38,6 +38,10 @@ dependencies = [
     "gTTS==2.5.4",
     "pillow==11.3.0",
     "pywin32==312 ; sys_platform == 'win32'",
+    # The window: a web page in a native window, drawn by WebView2 (UI-SPEC 5).
+    "pywebview==6.2.1 ; sys_platform == 'win32'",
+    # Personality packs are TOML the owner can read and share (UI-SPEC 7.9).
+    "tomli-w==1.2.0",
 ]
 
 [project.optional-dependencies]
@@ -66,7 +70,7 @@ Changelog = "https://github.com/Ryan-Clinton/pastie-hon/blob/main/CHANGELOG.md"
 where = ["src"]
 
 [tool.setuptools.package-data]
-pastie = ["py.typed", "app/pastie.ico"]
+pastie = ["py.typed", "app/pastie.ico", "app/web/*.html", "app/web/*.css", "app/web/*.js", "app/web/brand/*", "app/web/poses/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -149,5 +153,8 @@ module = [
     "winerror",
     "pywintypes",
     "ntsecuritycon",
+    # The window's host, installed on Windows only.
+    "webview",
+    "webview.*",
 ]
 ignore_missing_imports = true

@@ -267,6 +267,7 @@ def test_an_accepted_command_is_not_called_successful() -> None:
     assert screen["trail"]["pose"] == "working"
     assert [row["stamp"] for row in screen["trail"]["rows"]] == [None, "AWAITING APPLIANCE"]
     assert screen["hero"]["pose"] != "confirmed"
+    assert screen["hero"]["actions"] == {"mode": "none"}  # the trail replaces the panel
 
 
 def test_a_timed_out_command_is_a_plain_panel() -> None:

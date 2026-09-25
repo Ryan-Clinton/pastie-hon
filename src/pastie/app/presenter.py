@@ -31,7 +31,7 @@ from typing import Any
 
 from pastie import __version__
 from pastie.app import voice
-from pastie.app.memory import WindowMemory
+from pastie.app.memory import Appearance, WindowMemory
 
 LEVELS = ("plain", "dry", "departmental")
 
@@ -140,6 +140,29 @@ class Presenter:
             self._memory.state.appearance.level = level
             self._memory.touch()
             self._memory.save()
+
+    @property
+    def appearance(self) -> Appearance:
+        return self._memory.state.appearance
+
+    def set_appearance(self, level: str, theme: str, reduce_motion: str) -> None:
+        appearance = self._memory.state.appearance
+        if level in LEVELS:
+            appearance.level = level
+        if theme in ("system", "dark", "light"):
+            appearance.theme = theme
+        if reduce_motion in ("system", "on"):
+            appearance.reduce_motion = reduce_motion
+        self._memory.touch()
+        self._memory.save()
+
+    def messenger_aside(self, name: str) -> str | None:
+        """After a successful messenger test, at Dry and above (UI-SCREENS 7.2)."""
+        if self.level == "plain":
+            return None
+        event_id = f"messenger/{name}/{self._now().isoformat()}"
+        pool = voice.ASIDES["messenger_ok"]
+        return pool[self._memory.pick(event_id, len(pool), _seed(event_id))]
 
     def level_for(self, appliance_id: str) -> str:  # noqa: ARG002 - see below
         """The personality level for one appliance.
@@ -342,6 +365,10 @@ class Presenter:
             "trail": None,
             "guide_new": self.guide_has_new(),
             "version": __version__,
+            "appearance": {
+                "theme": self.appearance.theme,
+                "reduce_motion": self.appearance.reduce_motion,
+            },
         }
 
         if stage is not None:
@@ -379,6 +406,10 @@ class Presenter:
         hero = next(a for a in appliances if str(a.get("id")) == hero_id)
         screen["hero"] = self._hero(hero, status or {}, level)
         screen["trail"] = self._trail(hero, status or {}, level)
+        # The paper trail replaces the Start panel until the command is final
+        # (UI-SCREENS 3.2): nobody should be able to start a second one meanwhile.
+        if screen["trail"] and screen["trail"]["outcome"] in ("requested", "accepted"):
+            screen["hero"]["actions"] = {"mode": "none"}
         self._memory.save()
         return screen
 
@@ -976,13 +1007,29 @@ class Presenter:
 
     # ============================================================ pages
 
-    def history(self) -> dict[str, Any]:
+    def history(self, status: dict[str, Any] | None = None) -> dict[str, Any]:
         level = self.level
-        rows = []
-        for row in reversed(self._memory.state.observations):
+        dated: list[tuple[str, dict[str, Any]]] = []
+        for row in self._memory.state.observations:
             rendered = _history_row(row)
             if rendered:
-                rows.append(rendered)
+                dated.append((str(row.get("t") or ""), rendered))
+        for event in (status or {}).get("recent") or []:
+            if event.get("kind") == "cycle_finished_while_away":
+                continue  # already recorded as a gap, with its stamp
+            dated.append(
+                (
+                    str(event.get("at") or ""),
+                    {
+                        "time": _clock(_when(event.get("at"))),
+                        "text": str(event.get("message") or ""),
+                        "detail": "announced",
+                        "stamp": None,
+                    },
+                )
+            )
+        dated.sort(key=lambda item: _when(item[0]) or datetime.min.replace(tzinfo=UTC))
+        rows = [rendered for _, rendered in reversed(dated)]
         return {
             "title": "History",
             "subtitle": voice.HISTORY_SUBTITLE if level == "departmental" else None,
