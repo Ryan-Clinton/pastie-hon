@@ -44,12 +44,17 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stopped is not old news - and again if the tank fills twice in one load.
   Found by watching the real machine, not by reading Haier's strings: those
   suggested a phase number, and it is not one.
-- **The pastie goes through the cycle instead of a progress bar.** A line of
-  narration and four meters from 0 to 100. The first is the real progress and
-  says so; the others are Crispiness, Existential dread and Sock escape
-  probability. There are no meters until the machine gives a real number, and a
-  fault or full tank is said plainly. `pastie.app.ordeal` is pure functions,
-  with the lines seeded per cycle so a refresh never changes the story.
+- **A presenter decides everything the window shows** (`app/presenter.py`,
+  docs/UI-SPEC.md phase 1). Facts first and plain at every personality level
+  (Plain, Dry, Departmental); at most one aside, and none for faults, the tank
+  or anything needing action; the Confirmed pose only on machine-confirmed
+  state. Every shipped line is in `app/voice.py`, checked for pool sizes,
+  length, duplicates and borrowed catchphrases. The window remembers which
+  line it picked for which event, and the evidence for each cycle's case file,
+  in its own file under the user's profile; never the words it showed.
+- **The status reply carries the facts behind its text**: `remaining_minutes`,
+  `remaining_settled`, and `command_detail`, the command's progress as data.
+  The old text fields stay, so nothing that read them breaks.
 - **The taskbar shows the pastie.** The window sets the icon, and the process
   claims its own taskbar identity. Without that, Windows grouped it under
   pythonw.exe and showed Python's icon.

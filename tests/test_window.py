@@ -188,7 +188,7 @@ def test_a_status_reply_reaches_the_widgets(window: Any) -> None:
     assert window.state_label.cget("text") == "RUNNING"
     assert "Mixed load" in window.detail_label.cget("text")
     assert "45 min" in window.detail_label.cget("text")
-    assert "a filter clean" in window.detail_label.cget("text")
+    assert "Due now: filter clean" in window.detail_label.cget("text")
     assert window.health_label.cget("text") == "Working normally"
 
 
@@ -199,7 +199,7 @@ def test_an_unverified_appliance_cannot_be_started_and_says_why(window: Any) -> 
     }
     window._show_status(unverified)
 
-    assert "unverified" in window.state_label.cget("text")
+    assert "UNVERIFIED" in window.state_label.cget("text")
     assert str(window.start_button.cget("state")) == "disabled"
     assert "will not send it commands" in window.armed_label.cget("text")
 
@@ -429,11 +429,23 @@ def test_the_taskbar_icon_ships_with_the_package() -> None:
     assert ICON.is_file()  # a missing icon is logged, not raised, so check here
 
 
-def test_the_pastie_endures_the_cycle_instead_of_a_progress_bar(window: Any) -> None:
+def test_the_window_draws_what_the_presenter_decides(window: Any) -> None:
+    window._presenter.set_level("departmental")
     window._show_status(STATUS)  # running, halfway
+    window._show_status(STATUS)  # past the connecting stages
 
-    assert window.ordeal_label.cget("text")
     name, bar, value = window._meter_rows[0]
-    assert name.cget("text") == "Doneness (real)"
+    assert name.cget("text") == "Progress"
     assert value.cget("text") == "50"
     assert float(bar.cget("value")) == 50
+    assert window._meter_rows[1][0].cget("text") == "Crispiness"
+    assert window.ordeal_label.cget("text")
+
+
+def test_plain_shows_the_progress_and_nothing_else(window: Any) -> None:
+    window._presenter.set_level("plain")
+    window._show_status(STATUS)
+
+    assert window.ordeal_label.cget("text") == ""
+    assert window._meter_rows[0][0].cget("text") == "Progress"
+    assert not window._meter_rows[1][0].winfo_ismapped()

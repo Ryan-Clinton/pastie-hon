@@ -136,6 +136,8 @@ async def test_the_status_reply_says_what_the_machine_is_doing() -> None:
     assert appliance["state"] == "running"
     assert appliance["programme"] == "Mixed load"
     assert appliance["remaining"] == "about 120 min (still estimating)"
+    assert appliance["remaining_minutes"] == 120
+    assert appliance["remaining_settled"] is False
     assert appliance["trust"] == "verified"
 
 
@@ -304,6 +306,10 @@ async def test_an_accepted_command_is_not_reported_as_done_until_the_machine_agr
     lifecycle.append(progress.outcome)
 
     assert lifecycle == [CommandOutcome.ACCEPTED, CommandOutcome.CONFIRMED]
+    detail = watcher.status().to_json()["command_detail"]
+    assert detail["outcome"] == "confirmed"
+    assert detail["accepted_at"]
+    assert detail["confirmed_at"]
 
 
 async def test_a_rejection_from_haier_is_passed_back_in_words() -> None:

@@ -83,6 +83,11 @@ class ApplianceStatus:
     updated_at: str
     programme: str | None = None
     remaining: str = "unknown"
+    #: The same figure, unphrased, for a window that wants to phrase it itself.
+    #: None when there is no countdown to show.
+    remaining_minutes: int | None = None
+    #: Whether the countdown is trustworthy yet (see connector/reading.py).
+    remaining_settled: bool = False
     progress: float | None = None
     door_open: bool | None = None
     remote_allowed: bool | None = None
@@ -111,6 +116,12 @@ class ApplianceStatus:
             updated_at=snapshot.observed_at.isoformat(),
             programme=snapshot.programme,
             remaining=snapshot.display_remaining(),
+            remaining_minutes=(
+                None
+                if snapshot.remaining is None
+                else int(snapshot.remaining.total_seconds() // 60)
+            ),
+            remaining_settled=snapshot.remaining_is_settled,
             progress=snapshot.progress,
             door_open=snapshot.door_open,
             remote_allowed=snapshot.remote_allowed,
@@ -145,6 +156,8 @@ class Status:
     appliances: list[ApplianceStatus] = field(default_factory=list)
     recent: list[dict[str, Any]] = field(default_factory=list)
     command: list[str] = field(default_factory=list)
+    #: The same attempt as facts (CommandProgress.to_json), or None.
+    command_detail: dict[str, Any] | None = None
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -153,6 +166,7 @@ class Status:
             "appliances": [vars(appliance) for appliance in self.appliances],
             "recent": self.recent,
             "command": self.command,
+            "command_detail": self.command_detail,
         }
 
 
@@ -409,6 +423,7 @@ class Watcher:
                 for event in self._recent
             ],
             command=active,
+            command_detail=current.to_json() if (current := self._commands.current()) else None,
         )
 
     @property

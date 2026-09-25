@@ -31,8 +31,10 @@ from typing import Any
 
 from pastie.app.client import ServiceClient, ServiceUnavailableError
 from pastie.app.launch import start_service_if_needed
-from pastie.app.ordeal import REAL, Ordeal, ordeal_for
+from pastie.app.memory import WindowMemory
+from pastie.app.presenter import LEVELS, Presenter
 from pastie.messengers.base import OVERRIDES
+from pastie.service import paths
 from pastie.service.channel import PipeClient
 
 log = logging.getLogger(__name__)
@@ -51,7 +53,8 @@ RED = "#e2664f"
 FIELD = "#eef1f6"
 INK = "#171a20"
 
-#: How many 0-100 meters the ordeal panel has room for.
+#: How many 0-100 meters the panel has room for: the real progress, then up to
+#: three joke meters in Departmental mode.
 METER_ROWS = 4
 
 STATE_COLOURS = {
@@ -114,9 +117,19 @@ class Work:
 
 
 class App(tk.Tk):
-    def __init__(self, client: ServiceClient, *, starting_service: bool = False) -> None:
+    def __init__(
+        self,
+        client: ServiceClient,
+        *,
+        starting_service: bool = False,
+        memory: WindowMemory | None = None,
+    ) -> None:
         super().__init__()
         self._client = client
+        #: All wording and screen decisions (docs/UI-SPEC.md 5.5). An in-memory
+        #: memory unless one is handed in, so tests never write to the profile.
+        self._presenter = Presenter(memory or WindowMemory(None))
+        self._last_status: dict[str, Any] | None = None
         self._starting_service = starting_service
         self._work = Work()
         self._appliance: str | None = None
@@ -186,6 +199,20 @@ class App(tk.Tk):
             font=("Segoe UI", 10),
         )
         self.health_label.pack(side="right")
+        self.level_box = ttk.Combobox(
+            bar, state="readonly", values=[level.title() for level in LEVELS], width=13
+        )
+        self.level_box.set(self._presenter.level.title())
+        self.level_box.bind("<<ComboboxSelected>>", self._level_chosen)
+        self.level_box.pack(side="right", padx=(0, 12))
+        tk.Label(bar, text="Personality", bg=BG, fg=MUTED, font=("Segoe UI", 9)).pack(
+            side="right", padx=(0, 6)
+        )
+
+    def _level_chosen(self, *_event: object) -> None:
+        self._presenter.set_level(_chosen(self.level_box).lower())
+        if self._last_status is not None:
+            self._show_status(self._last_status)
 
     # --------------------------------------------------------- appliance
 
@@ -209,7 +236,7 @@ class App(tk.Tk):
         self.detail_label.pack(anchor="w")
 
         # What the pastie is going through, in place of a progress bar. The
-        # first meter is the real progress; see pastie.app.ordeal.
+        # first meter is the real progress; see pastie.app.presenter.
         self.ordeal_label = tk.Label(
             card,
             text="",
@@ -799,44 +826,39 @@ class App(tk.Tk):
             fg=GREEN if health == "ok" else (AMBER if health == "slow" else RED),
         )
 
+        self._last_status = status
+        screen = self._presenter.screen(status)
+        hero = screen["hero"]
         appliances = status.get("appliances") or []
-        if not appliances:
-            self.name_label.configure(text="No appliance yet")
+        if hero is None:
+            connecting = screen.get("connecting") or {}
+            self.name_label.configure(text=str(connecting.get("line") or "No appliance yet"))
             return
 
-        appliance = appliances[0]
-        self._appliance = str(appliance.get("id"))
-        name = str(appliance.get("name", "appliance"))
-        self.name_label.configure(text=f"{name[:1].upper()}{name[1:]}")
-        self.model_label.configure(text=str(appliance.get("model", "")))
+        appliance = next(a for a in appliances if str(a.get("id")) == hero["id"])
+        self._appliance = hero["id"]
+        self.name_label.configure(text=hero["name"])
+        self.model_label.configure(text=hero["model"])
+        label = hero["state_word"] + ("  UNVERIFIED" if hero["unverified"] else "")
+        self.state_label.configure(text=label, fg=STATE_COLOURS.get(hero["state"], MUTED))
 
-        state = str(appliance.get("state", "unknown"))
-        unverified = appliance.get("trust") != "verified"
-        label = state.upper() + ("  (unverified - raw readings only)" if unverified else "")
-        self.state_label.configure(text=label, fg=STATE_COLOURS.get(state, MUTED))
-
+        facts = hero["facts"]
         lines = []
-        if appliance.get("programme"):
-            lines.append(f"Programme   {appliance['programme']}")
-        lines.append(f"Remaining   {appliance.get('remaining', 'unknown')}")
-        if appliance.get("attention"):
-            lines.append(f"Waiting     {appliance['attention']}")
-        if appliance.get("fault_code"):
-            lines.append(f"Fault       {appliance['fault_code']}")
-        for item in appliance.get("maintenance", []):
-            if item.get("due"):
-                lines.append(f"Due         {item['name']}")
+        if facts.get("programme"):
+            lines.append(f"Programme   {facts['programme']}")
+        if facts.get("remaining"):
+            lines.append(f"Remaining   {facts['remaining']} · {facts['confidence']}")
+        elif facts.get("confidence"):
+            lines.append(f"Remaining   {facts['confidence']}")
+        if facts.get("completion"):
+            lines.append(f"Estimated completion   {facts['completion']}")
+        if facts.get("finished_at"):
+            lines.append(f"Finished    {facts['finished_at']}")
+        lines.extend(facts.get("lines", []))
+        lines.extend(facts.get("maintenance", []))
         self.detail_label.configure(text="\n".join(lines))
 
-        progress = appliance.get("progress")
-        ordeal = ordeal_for(
-            state,
-            None if progress is None else float(progress),
-            attention=appliance.get("attention"),
-            seed=f"{self._appliance}/{appliance.get('programme') or ''}",
-        )
-        self._show_ordeal(ordeal)
-
+        self._show_hero_extras(hero)
         self._show_controls(appliance)
 
         recent = status.get("recent") or []
@@ -844,17 +866,22 @@ class App(tk.Tk):
             text="\n".join(f"{item['at'][11:16]}  {item['message']}" for item in recent[:6])
             or "Nothing yet."
         )
-        if status.get("command"):
-            self.command_label.configure(text="\n".join(status["command"]))
+        self.command_label.configure(text=_trail_text(screen.get("trail")))
 
-    def _show_ordeal(self, ordeal: Ordeal) -> None:
-        self.ordeal_label.configure(text=ordeal.headline)
+    def _show_hero_extras(self, hero: dict[str, Any]) -> None:
+        """The aside, the real progress, and the joke meters (Departmental)."""
+        self.ordeal_label.configure(text=hero.get("aside") or "")
+        rows: list[tuple[str, int]] = []
+        progress = hero["facts"].get("progress")
+        if progress is not None:
+            rows.append(("Progress", int(progress)))
+        rows.extend((m["label"], int(m["value"])) for m in hero.get("meters", []))
         for index, (name, bar, value) in enumerate(self._meter_rows):
-            if index < len(ordeal.meters):
-                meter = ordeal.meters[index]
-                name.configure(text=meter.label, fg=TEXT if meter.label == REAL else MUTED)
-                value.configure(text=f"{meter.value}")
-                bar.configure(value=meter.value)
+            if index < len(rows):
+                label, number = rows[index]
+                name.configure(text=label, fg=TEXT if index == 0 else MUTED)
+                value.configure(text=f"{number}")
+                bar.configure(value=number)
                 for widget in (name, bar, value):
                     widget.grid()
             else:
@@ -936,6 +963,24 @@ class App(tk.Tk):
                 ),
                 fg=AMBER,
             )
+
+
+def _trail_text(trail: dict[str, Any] | None) -> str:
+    """The paper trail as lines, for the Tk window (UI-SPEC 6.5)."""
+    if not trail:
+        return ""
+    rows = [
+        f"{row['time']}  {row['text']}" + (f"   [{row['stamp']}]" if row.get("stamp") else "")
+        for row in trail["rows"]
+    ]
+    panel = trail.get("panel")
+    if panel:
+        rows.append(panel["title"])
+        rows.extend(f"{label}   {value}" for label, value in panel.get("rows", []))
+        rows.extend(panel.get("lines", []))
+    if trail.get("collapsed"):
+        rows = rows[-1:]
+    return "\n".join([trail["title"], *rows] if not trail.get("collapsed") else rows)
 
 
 def _chosen(box: ttk.Combobox) -> str:
@@ -1027,7 +1072,8 @@ def main() -> int:
     # Two processes is an implementation detail, not something to make somebody
     # open a terminal for. If the background half is not up, start it.
     starting = start_service_if_needed()
-    App(ServiceClient(PipeClient().ask), starting_service=starting).mainloop()
+    memory = WindowMemory(paths.app_dir() / "window.json")
+    App(ServiceClient(PipeClient().ask), starting_service=starting, memory=memory).mainloop()
     return 0
 
 

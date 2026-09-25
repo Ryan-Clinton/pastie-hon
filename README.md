@@ -97,11 +97,14 @@ away from the code and start lying.
   the machine actually started rather than whether the server accepted the request
 - **Tells you when the filter needs cleaning** — the appliance keeps its own
   service schedule and nobody had noticed
-- **Shows a cycle as something the pastie goes through**, not a progress bar: a
-  line of narration and four meters from 0 to 100. The first meter is the real
-  progress and says so. The others are Crispiness, Existential dread and Sock
-  escape probability. A fault or a full tank is still said plainly.
-  ([`app/ordeal.py`](src/pastie/app/ordeal.py))
+- **Has a personality you can turn down.** Plain, Dry (the default) or
+  Departmental. The facts are the same at every level: state, programme, time
+  remaining (marked "still estimating" until it is trustworthy), progress,
+  faults and the tank. Dry adds one remark only when something actually
+  happened. Departmental adds the pastie's ordeal: narration and three joke
+  meters per programme. A fault or a full tank is plain at every level.
+  ([`app/presenter.py`](src/pastie/app/presenter.py),
+  [`app/voice.py`](src/pastie/app/voice.py))
 
 ## What it isn't
 
