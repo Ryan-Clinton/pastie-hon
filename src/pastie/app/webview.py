@@ -227,6 +227,17 @@ class Bridge:
             return {"ok": False, "error": str(error)}
         return {"ok": True, "restart_needed": restart}
 
+    # ------------------------------------------------------------- first run
+
+    def onboarding(self) -> dict[str, Any]:
+        """Whether the first-run steps are needed, and their supporting lines."""
+        try:
+            _, _, account = self._client.settings()
+        except ServiceUnavailableError:
+            return {"needed": False, "reason": "service"}
+        asides = self._locked(self._presenter.onboarding)
+        return {"needed": not account, "asides": asides}
+
     # ------------------------------------------------------------- personalities
 
     def personalities(self) -> dict[str, Any]:

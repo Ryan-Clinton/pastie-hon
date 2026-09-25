@@ -172,3 +172,85 @@ def test_the_window_opens_no_listening_socket() -> None:
         pytest.skip(f"WebView2 could not start here: {report['error']}")
     assert report["listening"] == [], f"the window is listening: {report['listening']}"
     assert report["href"].startswith("file:///")
+
+
+# ------------------------------------------------------------- contrast (UI-SPEC 10.2)
+
+
+def _tokens(block: str) -> dict[str, str]:
+    return dict(re.findall(r"--([a-z-]+):\s*(#[0-9a-fA-F]{6})", block))
+
+
+def _luminance(hex_colour: str) -> float:
+    channels = [int(hex_colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _contrast(a: str, b: str) -> float:
+    high, low = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+@pytest.mark.parametrize("theme", ["dark", "light"])
+def test_body_text_meets_wcag_aa_in_both_themes(theme: str) -> None:
+    css = (WEB / "app.css").read_text(encoding="utf-8")
+    dark = _tokens(css[css.index(":root {") : css.index("}", css.index(":root {"))])
+    light = {**dark, **_tokens(css[css.index(':root[data-theme="light"]') :].split("}", 1)[0])}
+    t = dark if theme == "dark" else light
+    pairs = [
+        ("text", "bg"),
+        ("text", "card"),
+        ("text", "card-hi"),
+        ("muted", "bg"),
+        ("muted", "card"),
+        ("gold", "bg"),
+        ("gold", "card"),
+        ("red", "card"),
+        ("ink", "cream"),
+        ("ink-soft", "cream"),
+    ]
+    for fg, bg in pairs:
+        ratio = _contrast(t[fg], t[bg])
+        assert ratio >= 4.5, f"{theme}: {fg} on {bg} is {ratio:.2f}:1"
+
+
+# ------------------------------------------------------------- first run (UI-SCREENS 8)
+
+
+class NoAccount(FakeClient):
+    def settings(self) -> tuple[dict[str, Any], list[MessengerDescription], bool]:
+        values, messengers, _ = super().settings()
+        return values, messengers, False
+
+
+def test_the_first_run_is_offered_only_without_an_account() -> None:
+    assert not bridge().onboarding()["needed"]
+    first = Bridge(NoAccount(), Presenter(WindowMemory(None))).onboarding()  # type: ignore[arg-type]
+    assert first["needed"]
+    assert first["asides"]["messengers"]
+
+
+def test_the_first_run_is_plain_at_plain_and_never_jokes_about_the_account() -> None:
+    presenter = Presenter(WindowMemory(None))
+    presenter.set_appearance("plain", "system", "system")
+    first = Bridge(NoAccount(), presenter).onboarding()  # type: ignore[arg-type]
+    assert first["asides"] == {"appliances": None, "messengers": None, "tested": None}
+    assert "account" not in Presenter(WindowMemory(None)).onboarding()
+
+
+def test_a_service_that_is_down_does_not_start_the_first_run() -> None:
+    class Down(FakeClient):
+        def settings(self) -> Any:
+            raise ServiceUnavailableError("down")
+
+    assert not Bridge(Down(), Presenter(WindowMemory(None))).onboarding()["needed"]  # type: ignore[arg-type]
+
+
+def test_primary_buttons_are_readable_in_both_themes() -> None:
+    css = (WEB / "app.css").read_text(encoding="utf-8")
+    dark = _tokens(css[css.index(":root {") : css.index("}", css.index(":root {"))])
+    light = {**dark, **_tokens(css[css.index(':root[data-theme="light"]') :].split("}", 1)[0])}
+    assert _contrast("#1a1206", dark["gold"]) >= 4.5  # dark text on the dark theme's gold
+    assert ':root[data-theme="light"] .btn:not(.secondary):not(.danger) { color: #ffffff; }' in css
+    assert _contrast("#ffffff", light["gold"]) >= 4.5  # white text on the light theme's gold

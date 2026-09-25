@@ -40,6 +40,7 @@
     <section class="view" id="view-settings" hidden aria-label="Settings"></section>
     <section class="view" id="view-about" hidden aria-label="About"></section>
     <section class="view" id="view-diagnostics" hidden aria-label="Diagnostics"></section>
+    <section class="view" id="view-onboarding" hidden aria-label="Setting up Pastie"></section>
   </main>
 </div>
 
@@ -51,6 +52,10 @@
     <button class="btn secondary" id="why-close">Close</button>
   </div>
 </div>
+
+<!-- One persistent place for screen readers to hear a state change, once
+     (UI-SPEC 10.3). The visible text is redrawn; this is not. -->
+<div class="sr-only" id="live" aria-live="polite" aria-atomic="true"></div>
 
 <script src="app.js"></script>
 </body>

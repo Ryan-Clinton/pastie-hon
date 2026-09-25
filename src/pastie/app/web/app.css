@@ -38,8 +38,8 @@
   --line: #ddd4c2;
   --text: #1b2233;
   --muted: #5d6679;
-  --gold: #a86a10;
-  --gold-soft: rgba(168, 106, 16, 0.12);
+  --gold: #8f5a0a;
+  --gold-soft: rgba(143, 90, 10, 0.12);
   --cream: #fbf6ea;
   --red: #b83a24;
   --red-soft: rgba(184, 58, 36, 0.10);
@@ -412,3 +412,17 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
 .preview-box select { width: auto; margin-left: 6px; padding: 3px 6px; }
 .preview-head { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
 .preview-head img { width: 48px; height: 48px; }
+
+/* ------------------------------------------------------------- onboarding */
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.steps { display: flex; gap: 6px; margin-bottom: 12px; }
+.steps span { flex: 1; height: 4px; border-radius: 2px; background: var(--card-hi); }
+.steps span.done { background: var(--gold); }
+.onboard-crest { width: 140px; height: 140px; display: block; margin: 0 auto 8px; }
+.appliance-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+
+/* The light theme's gold is darker (for text contrast), so its primary buttons
+   carry white text: 5.8:1 rather than dark-on-dark. */
+:root[data-theme="light"] .btn:not(.secondary):not(.danger) { color: #ffffff; }
+.about-crest, .onboard-crest, .connecting img.crest { border-radius: 18px; }

@@ -163,6 +163,15 @@ class Presenter:
         self._memory.touch()
         self._memory.save()
 
+    def onboarding(self) -> dict[str, Any]:
+        """The first run's supporting lines (UI-SCREENS 8). Only above Plain.
+
+        The account step never has one: credentials are plain (SPEC 17, rule 5).
+        """
+        if self.level == "plain":
+            return {"appliances": None, "messengers": None, "tested": None}
+        return dict(voice.ONBOARDING_ASIDES)
+
     def messenger_aside(self, name: str) -> str | None:
         """After a successful messenger test, at Dry and above (UI-SCREENS 7.2)."""
         if self.level == "plain":

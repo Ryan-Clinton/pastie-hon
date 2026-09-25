@@ -61,6 +61,14 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   messenger's declared settings, as before), About and Diagnostics. It loads
   nothing from the network: a Content-Security-Policy with `connect-src 'none'`,
   and no web address anywhere in the bundle.
+- **A first run, and an accessibility pass** (docs/UI-SPEC.md phase 6). With
+  no saved account the window opens on four steps: connect the account (plain,
+  under the crest), find appliances (from the real status, never a timer),
+  choose how Pastie tells you things, and send a test, which earns the
+  thumbs-up only on a real delivery. State changes are announced once, from a
+  region that is never redrawn; the "why" panel returns focus to where it was
+  opened; every text colour in both themes is tested against WCAG AA, which
+  darkened the light theme's gold and gave its primary buttons white text.
 - **Every personality is configurable** (docs/UI-SPEC.md phase 5, 7.9).
   Settings -> Personalities has a card per cast member: each appliance type,
   the Household and Pastie. Name, temperament (Diligent, Indecisive, Dramatic,

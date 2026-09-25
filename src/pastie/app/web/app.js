@@ -36,6 +36,8 @@ window.addEventListener("pywebviewready", async () => {
   bindRail();
   bindWhy();
   await applyAppearance();
+  const first = await api().onboarding();
+  if (first.needed) startOnboarding(first.asides);
   tick();
 });
 
@@ -67,6 +69,18 @@ function render() {
   health.querySelector(".words").textContent = h.words;
   $("guide-dot").hidden = !screen.guide_new;
   if (view === "home") renderHome();
+  announce();
+}
+
+// One announcement per real change of state, from a node that is never redrawn.
+let announced = "";
+function announce() {
+  const hero = screen && screen.hero;
+  const text = hero ? `${hero.name}: ${hero.state_word}` : (screen && screen.connecting ? screen.connecting.line : "");
+  if (text && text !== announced) {
+    announced = text;
+    $("live").textContent = text;
+  }
 }
 
 function bindRail() {
@@ -185,7 +199,7 @@ function heroHtml(hero) {
     </div>
     <p class="hero-name">${esc(hero.name)}<span class="stamps">${(hero.stamps || []).map((s) => `<span class="stamp plainstamp">${esc(s)}</span>`).join("")}</span></p>
     <div class="hero-model">${esc(hero.model)}</div>
-    <div class="state-word state-${esc(hero.state)}" aria-live="polite">${esc(hero.state_word)}</div>
+    <div class="state-word state-${esc(hero.state)}">${esc(hero.state_word)}</div>
     <div class="facts">${lines.join("")}</div>
     ${hero.aside ? `<p class="aside">${esc(hero.aside)}</p>` : ""}
     ${poked ? `<p class="poked">${esc(poked)}</p>` : ""}
@@ -343,8 +357,11 @@ function bindWhy() {
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeWhy(); });
 }
 
+let whyOpener = null;
+
 function openWhy(why) {
   if (!why) return;
+  whyOpener = document.activeElement;
   $("why-title").textContent = why.title;
   $("why-body").innerHTML = why.body.map((p) => `<p>${esc(p)}</p>`).join("");
   $("why-source").textContent = why.source;
@@ -353,7 +370,11 @@ function openWhy(why) {
   $("why-close").focus();
 }
 
-function closeWhy() { $("why").hidden = true; }
+function closeWhy() {
+  if ($("why").hidden) return;
+  $("why").hidden = true;
+  if (whyOpener && whyOpener.focus) whyOpener.focus();  // back where the reader was
+}
 
 // ================================================================ history
 
@@ -787,4 +808,96 @@ async function openPool(card, pool, el) {
     editor.querySelector("[data-close-pool]").addEventListener("click", () => { editor.hidden = true; });
   };
   draw();
+}
+
+// ================================================================ first run
+//
+// UI-SCREENS 8. Four steps; buttons literal; supporting lines only above Plain;
+// the account step always plain; the thumbs-up only on a real delivery.
+
+async function startOnboarding(asides) {
+  const el = $("view-onboarding");
+  document.querySelectorAll(".view").forEach((v) => { v.hidden = v !== el; });
+  document.querySelectorAll(".rail-btn").forEach((b) => b.classList.remove("active"));
+  const steps = (n) => `<div class="steps" aria-label="Step ${n} of 4">${[1, 2, 3, 4].map((i) => `<span class="${i <= n ? "done" : ""}"></span>`).join("")}</div>`;
+  const aside = (key) => (asides && asides[key] ? `<p class="aside">${esc(asides[key])}</p>` : "");
+  const finish = () => { el.hidden = true; show("home"); };
+
+  const account = () => {
+    el.innerHTML = `${steps(1)}
+      <div class="card">
+        <img class="onboard-crest" src="brand/crest.png" alt="The Pastie crest">
+        <h2>Connect your Haier account</h2>
+        <p class="muted">The service encrypts this under its own Windows account. It is never stored here, and it cannot be read back out.</p>
+        <div class="field"><label for="ob-user">Email</label><input type="text" id="ob-user" autocomplete="off"></div>
+        <div class="field"><label for="ob-pass">Password</label><input type="password" id="ob-pass" autocomplete="off"></div>
+        <button class="btn" id="ob-connect">Connect</button>
+        <div class="result" id="ob-result"></div>
+      </div>`;
+    $("ob-user").focus();
+    $("ob-connect").addEventListener("click", async () => {
+      const r = await api().set_account($("ob-user").value, $("ob-pass").value);
+      $("ob-pass").value = "";
+      if (!r.ok) { $("ob-result").className = "result bad"; $("ob-result").textContent = r.error; return; }
+      appliances(r.restart_needed);
+    });
+  };
+
+  const appliances = (restart) => {
+    el.innerHTML = `${steps(2)}
+      <div class="card"><h2>Finding appliances…</h2>${aside("appliances")}
+        ${restart ? '<p class="note">The background service will use this account once it restarts.</p>' : ""}
+        <div id="ob-list"><p class="muted">Asking Haier…</p></div>
+        <button class="btn" id="ob-next" disabled>Continue</button></div>`;
+    const poll = async () => {
+      if (el.hidden || !$("ob-list")) return;
+      const s = await api().screen();
+      if (s.caseload && s.caseload.length) {
+        $("ob-list").innerHTML = s.caseload.map((c) => `
+          <div class="appliance-row"><span>${esc(c.name)}</span>
+            <span>${esc(c.state_word)}${c.unverified ? ' <span class="stamp plainstamp">unverified</span>' : ""}</span></div>`).join("");
+        $("ob-next").disabled = false;
+      } else if (s.where) {
+        $("ob-list").innerHTML = whereHtml(s.where);
+        setTimeout(poll, 3000);
+      } else {
+        setTimeout(poll, 2000);
+      }
+    };
+    $("ob-next").addEventListener("click", messengers);
+    poll();
+  };
+
+  const messengers = async () => {
+    el.innerHTML = `${steps(3)}
+      <div class="card"><h2>Choose how Pastie tells you things</h2>${aside("messengers")}</div>
+      <div id="ob-messengers"></div>
+      <button class="btn" id="ob-next">Continue</button>`;
+    const s = await api().settings();
+    if (s.ok) {
+      $("ob-messengers").innerHTML = s.messengers.map((m) => `<div class="card" data-messenger="${esc(m.name)}"></div>`).join("");
+      for (const m of s.messengers) renderMessenger(m, s.values[m.name] || {}, s.overrides_key);
+    }
+    $("ob-next").addEventListener("click", () => test(s.ok ? s.messengers : []));
+  };
+
+  const test = (list) => {
+    el.innerHTML = `${steps(4)}
+      <div class="card"><h2>Send a test</h2>
+        <img id="ob-pose" src="${esc(poses.normal || "")}" alt="" style="width:96px;height:96px">
+        <div class="field"><label for="ob-which">Messenger</label><select id="ob-which">${list.map((m) => `<option value="${esc(m.name)}">${esc(m.label)}</option>`).join("")}</select></div>
+        <button class="btn" id="ob-send" ${list.length ? "" : "disabled"}>Send a test</button>
+        <div class="result" id="ob-result"></div>
+        <div style="margin-top:14px"><button class="btn secondary" id="ob-done">Finish</button></div></div>`;
+    $("ob-send").addEventListener("click", async () => {
+      const r = await api().test_messenger($("ob-which").value);
+      const worked = r.ok && r.worked;
+      $("ob-pose").src = poses[worked ? "confirmed" : "fault"] || "";   // thumbs-up only on a real delivery
+      $("ob-result").className = `result ${worked ? "good" : "bad"}`;
+      $("ob-result").textContent = worked ? `${r.detail}${asides && asides.tested ? ` ${asides.tested}` : ""}` : (r.error || r.detail);
+    });
+    $("ob-done").addEventListener("click", finish);
+  };
+
+  account();
 }

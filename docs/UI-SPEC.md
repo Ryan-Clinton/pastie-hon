@@ -1,8 +1,9 @@
 # Pastie — the window, redone properly
 
 Status: **approved 2026-09-25, revision 4; being built** on the
-`feature/window-redesign` branch, one phase per commit (§12). Phases 1 to 5
-are built. Where the build taught us something, the text below says so. It covers the desktop window only. The service, the
+`feature/window-redesign` branch, one phase per commit (§12). All six phases
+are built. Measured on the owner's PC: the window opens in 1.33 s and idles at
+0.34 % of the machine mid-cycle (A11). Where the build taught us something, the text below says so. It covers the desktop window only. The service, the
 connector, the brain and the messengers don't change, and
 [SPEC.md](SPEC.md) still governs them.
 
