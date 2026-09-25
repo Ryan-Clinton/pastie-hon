@@ -28,7 +28,7 @@ Tumble dryer  (HD90-A2959R-UK)
 
 | | |
 |---|---|
-| ![The appliance tab](assets/screenshots/appliance.png) | ![The settings tab](assets/screenshots/settings.png) |
+| ![The home screen, Departmental, mid-cycle](assets/screenshots/appliance.png) | ![Settings, drawn from what each messenger declares](assets/screenshots/settings.png) |
 
 Both are live: the window holds no connection to Haier and no list of Haier's
 programme names — it asks the background service and draws the answer. The

@@ -393,6 +393,15 @@ def test_unknown_facts_come_first_and_the_aside_only_explains_the_refusal() -> N
 # ------------------------------------------------------------ connecting
 
 
+def test_the_crest_heads_the_empty_and_service_down_screens() -> None:
+    p, clock = presenter()
+    connected(p, clock)
+    assert p.screen(None)["where"]["crest"]
+    assert not p.screen(status(dryer(), health="auth"))["where"]["crest"]
+    clock.tick(10)
+    assert p.screen(status())["connecting"]["crest"]
+
+
 def test_connecting_follows_what_can_be_seen_not_a_timer() -> None:
     p, clock = presenter()
     assert p.screen(None)["connecting"]["stage"] == "service"

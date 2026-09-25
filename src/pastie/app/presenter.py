@@ -386,6 +386,7 @@ class Presenter:
                     "stage": "empty",
                     "line": voice.EMPTY_NO_APPLIANCE[level],
                     "pose": "normal",
+                    "crest": True,  # the empty screen gets the hero crest (UI-SPEC 10.4)
                 }
             self._memory.save()
             return screen
@@ -484,6 +485,8 @@ class Presenter:
             "layers": [{"name": n, "status": s} for n, s in layers],
             "try": tries,
             "pose": "fault",
+            # The hero crest heads the service-down screen (UI-SPEC 10.4).
+            "crest": health == "down",
             "aside": None,
         }
 

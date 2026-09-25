@@ -61,6 +61,13 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   messenger's declared settings, as before), About and Diagnostics. It loads
   nothing from the network: a Content-Security-Policy with `connect-src 'none'`,
   and no web address anywhere in the bundle.
+- **The identity comes from the crest** (docs/UI-SPEC.md phase 3, 10.4). A new
+  app icon (the shield, a simplified pastie face, and circuit stubs where there
+  is room) is drawn natively at 16, 24, 32, 48, 64, 128 and 256 px so it stays
+  legible small, and replaces the burger photo on the window, the taskbar and
+  the shortcuts. The full crest heads About, the empty screen and the
+  service-down screen. Poses change with a 200 ms fade; only the ring moves;
+  reduce motion stills both. The README screenshots are the new window.
 - **pywebview's local web server is kept firmly off.** It serves a page given as
   a path from `http://127.0.0.1` even when told not to, and even for absolute
   paths; the page is therefore always an explicit `file:///` URI. A test opens

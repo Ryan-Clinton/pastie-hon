@@ -26,6 +26,7 @@ const drawn = {};                 // section id -> JSON last drawn
 const choices = {};               // appliance id -> { programme, options }
 let stopArmedUntil = 0;
 let pokeClicks = [];
+let shownPose = null;               // for the 200 ms crossfade between poses
 let poked = null;
 
 // ================================================================ start up
@@ -116,7 +117,8 @@ function renderHome() {
   if (!screen.hero) {
     const c = screen.connecting || { line: "Connecting…", pose: "waiting" };
     once("home", { connecting: c }, () => {
-      home.innerHTML = `<div class="connecting"><img src="${esc(poses[c.pose] || "")}" alt=""><p>${esc(c.line)}</p></div>`;
+      const image = c.crest ? "brand/crest.png" : (poses[c.pose] || "");
+      home.innerHTML = `<div class="connecting"><img class="${c.crest ? "crest" : ""}" src="${esc(image)}" alt=""><p>${esc(c.line)}</p></div>`;
     });
     return;
   }
@@ -195,7 +197,14 @@ function bindHero(hero) {
     b.addEventListener("click", () => openWhy(hero.why[b.dataset.why]));
   });
   const pose = $("pose");
-  if (pose) pose.addEventListener("click", onPoke);
+  if (!pose) return;
+  pose.addEventListener("click", onPoke);
+  // A pose change is a 200 ms fade and nothing more (UI-SPEC 6.2).
+  if (shownPose !== null && shownPose !== hero.pose) {
+    pose.style.opacity = "0";
+    requestAnimationFrame(() => requestAnimationFrame(() => { pose.style.opacity = "1"; }));
+  }
+  shownPose = hero.pose;
 }
 
 async function onPoke() {
@@ -321,7 +330,7 @@ function whereHtml(where) {
   return `
     <div class="card where">
       <div class="label" style="color:var(--red)">${esc(where.title)}</div>
-      <img src="${esc(poses[where.pose] || "")}" alt="" style="width:72px;height:72px;float:right">
+      <img src="${esc(where.crest ? "brand/crest.png" : (poses[where.pose] || ""))}" alt="" style="width:72px;height:72px;float:right">
       <div class="layers">${where.layers.map((l) => `<span>${esc(l.name)}</span><span class="${["WORKING", "CONNECTED"].includes(l.status) ? "" : "bad"}">${esc(l.status)}</span>`).join("")}</div>
       <div class="label">Try</div>
       <ul>${where.try.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>

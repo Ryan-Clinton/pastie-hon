@@ -314,6 +314,7 @@ h2 { font-size: 15px; margin: 4px 0 12px; letter-spacing: 0.04em; }
 
 .connecting { text-align: center; padding: 40px 12px; }
 .connecting img { width: 120px; height: 120px; }
+.connecting img.crest { width: 180px; height: 180px; }
 .connecting p { color: var(--muted); font-size: 14px; }
 
 /* ------------------------------------------------------------- why */
