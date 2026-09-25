@@ -30,8 +30,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pastie import __version__
-from pastie.app import voice
+from pastie.app import personality, voice
 from pastie.app.memory import Appearance, WindowMemory
+from pastie.app.personality import PersonalityStore, Sheet
 
 LEVELS = ("plain", "dry", "departmental")
 
@@ -111,8 +112,14 @@ class Presenter:
         memory: WindowMemory,
         *,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
+        personalities: PersonalityStore | None = None,
     ) -> None:
         self._memory = memory
+        #: The owner's personality sheets (UI-SPEC 7.9). None of them can touch
+        #: a fact, a stamp, a pose's link to real state, or a plain message:
+        #: they are only ever consulted for asides, narration, meter labels and
+        #: the names used inside those.
+        self.personalities = personalities or PersonalityStore(None)
         self._now = now
         #: appliance id -> the previous reply's view of it (this session only).
         self._previous: dict[str, dict[str, Any]] = {}
@@ -164,17 +171,35 @@ class Presenter:
         pool = voice.ASIDES["messenger_ok"]
         return pool[self._memory.pick(event_id, len(pool), _seed(event_id))]
 
-    def level_for(self, appliance_id: str) -> str:  # noqa: ARG002 - see below
-        """The personality level for one appliance.
+    def sheet_for(self, appliance: dict[str, Any]) -> Sheet | None:
+        """The owner's sheet for this appliance's type - only once it is verified.
 
-        The global level until personality sheets arrive (UI-SPEC 7.9), which
-        let the owner override it per appliance.
+        An unverified appliance may be given a sheet ahead of time, but Pastie
+        still declines to characterise it until its type is confirmed (7.3).
         """
+        if appliance.get("trust") != "verified":
+            return None
+        return self.personalities.get(personality.key_for(str(appliance.get("name") or "")))
+
+    def level_for(self, appliance: dict[str, Any]) -> str:
+        """The personality level for one appliance: its sheet's, or the global one."""
+        sheet = self.sheet_for(appliance)
+        if sheet and sheet.level in LEVELS:
+            return sheet.level
         return self.level
 
     def name_for(self, appliance: dict[str, Any]) -> str:
         """What Pastie calls an appliance inside asides. Never used in facts."""
+        sheet = self.sheet_for(appliance)
+        if sheet and sheet.name.strip():
+            return sheet.name.strip()
         return f"the {appliance.get('name') or 'appliance'}"
+
+    def household(self) -> tuple[str, str]:
+        """What Pastie calls the humans, plain and possessive."""
+        sheet = self.personalities.get(personality.HOUSEHOLD)
+        name = (sheet.name.strip() if sheet else "") or "the Household"
+        return name, f"{name}'" if name.endswith("s") else f"{name}'s"
 
     def pin(self, appliance_id: str) -> None:
         self._memory.state.pinned = {"id": appliance_id, "at": self._now().isoformat()}
@@ -398,15 +423,16 @@ class Presenter:
                 "name": _sentence(str(a.get("name") or "appliance")),
                 "state": self._state(a),
                 "state_word": self._state_word(a),
-                "pose": self._pose(a, level, status),
+                "pose": self._pose(a, self.level_for(a), status),
                 "unverified": a.get("trust") != "verified",
                 "selected": str(a.get("id")) == hero_id,
             }
             for a in sorted(appliances, key=self._urgency)
         ]
         hero = next(a for a in appliances if str(a.get("id")) == hero_id)
-        screen["hero"] = self._hero(hero, status or {}, level)
-        screen["trail"] = self._trail(hero, status or {}, level)
+        hero_level = self.level_for(hero)
+        screen["hero"] = self._hero(hero, status or {}, hero_level)
+        screen["trail"] = self._trail(hero, status or {}, hero_level)
         # The paper trail replaces the Start panel until the command is final
         # (UI-SCREENS 3.2): nobody should be able to start a second one meanwhile.
         if screen["trail"] and screen["trail"]["outcome"] in ("requested", "accepted"):
@@ -673,8 +699,14 @@ class Presenter:
             and (facts.get("progress") is not None)
         ):
             p = (facts["progress"] or 0) / 100
-            specs = voice.METERS.get(str(appliance.get("programme") or ""), voice.METERS["default"])
-            meters = [{"label": m.label, "value": curve(m.curve, p)} for m in specs]
+            sheet = self.sheet_for(appliance)
+            if sheet and sheet.meters:
+                meters = [{"label": m.label, "value": curve(m.curve, p)} for m in sheet.meters[:3]]
+            else:
+                specs = voice.METERS.get(
+                    str(appliance.get("programme") or ""), voice.METERS["default"]
+                )
+                meters = [{"label": m.label, "value": curve(m.curve, p)} for m in specs]
 
         return {
             "id": aid,
@@ -706,10 +738,13 @@ class Presenter:
         state = self._state(appliance)
         today = self._now().astimezone().date().isoformat()
 
+        sheet = self.sheet_for(appliance)
+        household, household_s = self.household()
+
         def say(key: str, event_id: str, **values: object) -> str:
-            pool = voice.ASIDES[key]
+            pool = personality.effective(sheet, key)
             line = pool[self._memory.pick(event_id, len(pool), _seed(event_id))]
-            return _fill(line, name, **values)
+            return _fill(line, name, household=household, household_s=household_s, **values)
 
         if appliance.get("trust") != "verified":
             return say("unknown_state", f"{aid}/unknown")
@@ -768,7 +803,7 @@ class Presenter:
             if key in self._memory.state.picks or self._memory.first_today(
                 f"finished/{aid}", today
             ):
-                return say("finished", key)
+                return say("finished_aside", key)
             return None
 
         if state == "idle":
@@ -805,9 +840,31 @@ class Presenter:
             event_id = f"narration/{aid}/{self._cycle_marker(aid)}/{stage}"
         else:
             return None
-        pool = voice.NARRATION[stage]
+        pool = self._narration_pool(appliance, stage)
         index = self._memory.pick_narration(stage, event_id, len(pool), _seed(event_id))
-        return _fill(pool[index], name)
+        household, household_s = self.household()
+        return _fill(pool[index], name, household=household, household_s=household_s)
+
+    def _narration_pool(self, appliance: dict[str, Any], stage: str) -> tuple[str, ...]:
+        """A stage's lines with the owner's sheet applied (UI-SPEC 7.9).
+
+        Indecisive is the shipped narration as written; another temperament
+        adds its own lines by stage group; Custom uses only the owner's lines.
+        Pastie's stance and the Household's own lines join in as well.
+        """
+        sheet = self.sheet_for(appliance)
+        group = {"idle": "idle", "armed": "idle", "finished": "finished"}.get(stage, "running")
+        if sheet and sheet.temperament == "Custom":
+            base: tuple[str, ...] = ()  # the owner's lines and nothing else
+        else:
+            base = voice.NARRATION[stage] + personality.temperament_lines(sheet, group)
+            if sheet:
+                base = base + personality.stance_lines(sheet)
+        household = self.personalities.get(personality.HOUSEHOLD)
+        if household and group in ("idle", "finished"):
+            base = base + personality.effective(household, "household", base=())
+        pool = personality.effective(sheet, stage, base=base)
+        return pool or voice.NARRATION[stage]
 
     # ------------------------------------------------------------ why
 
@@ -905,9 +962,15 @@ class Presenter:
         if not appliance.get("remote_allowed"):
             aside = None
             if level != "plain":
-                pool = voice.ASIDES["remote_not_armed"]
+                pool = personality.effective(self.sheet_for(appliance), "remote_not_armed")
                 event_id = f"remote/{appliance.get('id')}"
-                aside = _fill(pool[self._memory.pick(event_id, len(pool), _seed(event_id))], name)
+                household, household_s = self.household()
+                aside = _fill(
+                    pool[self._memory.pick(event_id, len(pool), _seed(event_id))],
+                    name,
+                    household=household,
+                    household_s=household_s,
+                )
             return {
                 "mode": "not_armed",
                 "button": "Waiting for Remote mode",
@@ -1265,8 +1328,10 @@ class Presenter:
             return None
         self._last_poke = now
         event_id = f"poke/{now.isoformat()}"
-        pool = voice.POKED
-        return pool[self._memory.pick(event_id, len(pool), _seed(event_id))]
+        pool = personality.effective(self.personalities.get(personality.PASTIE), "poked")
+        household, household_s = self.household()
+        line = pool[self._memory.pick(event_id, len(pool), _seed(event_id))]
+        return _fill(line, "Pastie", household=household, household_s=household_s)
 
 
 # ================================================================ helpers
@@ -1277,7 +1342,14 @@ def _sentence(text: str) -> str:
 
 
 def _fill(line: str, name: str, **values: object) -> str:
-    return line.format(name=name, Name=_sentence(name), **values)
+    values.setdefault("household", "the Household")
+    values.setdefault("household_s", "the Household's")
+    try:
+        return line.format(name=name, Name=_sentence(name), **values)
+    except (KeyError, IndexError, ValueError):
+        # An owner's line that needs a value this moment doesn't have ({minutes}
+        # on an idle screen): show it with the placeholder left in, not a crash.
+        return line
 
 
 def _maintenance_line(item: dict[str, Any]) -> str:

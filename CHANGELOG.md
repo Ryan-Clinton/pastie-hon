@@ -61,6 +61,17 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   messenger's declared settings, as before), About and Diagnostics. It loads
   nothing from the network: a Content-Security-Policy with `connect-src 'none'`,
   and no web address anywhere in the bundle.
+- **Every personality is configurable** (docs/UI-SPEC.md phase 5, 7.9).
+  Settings -> Personalities has a card per cast member: each appliance type,
+  the Household and Pastie. Name, temperament (Diligent, Indecisive, Dramatic,
+  Aloof, Weary, Cheerful, Custom), Pastie's stance (Professional, Deferential,
+  Firm, Weary, Fond), a per-appliance personality level, the three meters, and
+  every line pool: switch shipped lines off, add your own (checked as you
+  type), or use only yours. A live preview renders any state at any level
+  before anything is saved. Sheets are TOML under your profile, with export,
+  import (valid parts applied, the rest named) and reset. No sheet can change a
+  fact, a stamp, a pose's link to real state, or put a joke on anything needing
+  action, and an unverified appliance's sheet waits until it is verified.
 - **The voice reaches everywhere it was specified** (docs/UI-SPEC.md phase 4):
   reactive asides for a rising estimate, a confirmed start, the first finish of
   the day, a maintenance count, a recovered gap, an unknown state, a silent

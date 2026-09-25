@@ -462,9 +462,12 @@ async function renderSettings() {
     <div class="card" id="account-card"></div>
     <div class="label" style="margin-top:4px">NOTIFICATIONS</div>
     <div id="messenger-cards"></div>
+    <div class="label" style="margin-top:4px">PERSONALITIES</div>
+    <div id="personality-cards"><p class="muted">Gathering the cast…</p></div>
     <div class="card" id="appearance-card"></div>`;
   renderAccount(s);
   renderAppearance(appearance);
+  renderPersonalities();
   if (!s.ok) {
     $("messenger-cards").innerHTML = `<div class="card"><p class="result bad">The service isn't answering, so there's nothing to show here yet. ${esc(s.error)}</p></div>`;
     return;
@@ -598,4 +601,190 @@ async function applyAppearance(given) {
   document.documentElement.dataset.theme = theme;
   document.body.classList.toggle("reduce-motion", a.reduce_motion === "on");
   api().title_bar(theme === "dark");
+}
+
+// ================================================================ personalities
+//
+// docs/UI-SPEC.md 7.9 and UI-SCREENS 7.3. Everything configurable here is
+// presentation: no setting can change a fact, a stamp, a pose's link to real
+// state, or the plainness of anything needing action. Python enforces that;
+// this only draws the editor.
+
+let cast = null;
+
+async function renderPersonalities() {
+  cast = await api().personalities();
+  const box = $("personality-cards");
+  box.innerHTML = cast.cards.map((c) => `<div class="card personality" data-card="${esc(c.key)}"></div>`).join("");
+  cast.cards.forEach(drawCard);
+}
+
+function optionsHtml(values, chosen, labels) {
+  return values.map((v) => `<option value="${esc(v)}" ${v === chosen ? "selected" : ""}>${esc((labels && labels[v]) || v)}</option>`).join("");
+}
+
+const LEVEL_LABELS = { follow: "Follow the global level", plain: "Plain", dry: "Dry", departmental: "Departmental" };
+
+function drawCard(card) {
+  const el = document.querySelector(`[data-card="${CSS.escape(card.key)}"]`);
+  const isAppliance = card.kind === "appliance";
+  const meters = isAppliance ? [0, 1, 2].map((i) => {
+    const m = card.meters[i] || { label: "", curve: "rising" };
+    return `<div class="meter-edit"><input type="text" data-meter-label="${i}" value="${esc(m.label)}" placeholder="(shipped meter)">
+      <select data-meter-curve="${i}">${optionsHtml(cast.curves, m.curve)}</select></div>`;
+  }).join("") : "";
+  el.innerHTML = `
+    <div class="card-head">
+      <div class="label" style="margin:0">${esc(card.title.toUpperCase())}</div>
+      <span>${card.customised ? '<span class="stamp gold">yours</span>' : ""}</span>
+    </div>
+    ${!card.verified ? '<p class="note">Takes effect once this appliance is verified. Until then Pastie declines to characterise it.</p>' : ""}
+    <div class="field"><label>Name</label><input type="text" data-f="name" value="${esc(card.name)}" maxlength="60"></div>
+    ${isAppliance ? `
+      <div class="field"><label>Temperament</label><select data-f="temperament">${optionsHtml(cast.temperaments, card.temperament)}</select></div>
+      <div class="field"><label>Pastie's stance</label><select data-f="stance">${optionsHtml(cast.stances, card.stance)}</select></div>
+      <div class="field"><label>Personality</label><select data-f="level">${optionsHtml(cast.levels, card.level, LEVEL_LABELS)}</select></div>
+      <div class="field"><label>Speech</label><span class="muted">Needs a service change first (off)</span></div>
+      <div class="muted" style="margin:10px 0 4px">Meters (Departmental). Leave blank for the programme's own.</div>
+      ${meters}` : ""}
+    <div class="muted" style="margin:12px 0 4px">Lines</div>
+    <div class="pools">${card.pools.map((p) => `
+      <div class="pool-row"><span>${esc(p.label)}</span>
+        <span class="muted">${p.shipped} shipped · ${p.yours} yours${p.disabled ? ` · ${p.disabled} off` : ""}${p.replace ? " · yours only" : ""}</span>
+        <button class="link" data-edit-pool="${esc(p.pool)}">Edit</button></div>`).join("")}
+      ${isAppliance ? '<div class="pool-row muted"><span>Faults and a full tank</span><span>Plain by rule, and not editable</span><span></span></div>' : ""}
+    </div>
+    <div class="pool-editor" data-pool-editor hidden></div>
+    <div class="preview-box">
+      <div class="muted">Preview
+        <select data-preview-state>${optionsHtml(cast.states, card.key === "pastie" ? "idle" : "running")}</select>
+        <select data-preview-level>${optionsHtml(["departmental", "dry", "plain"], "departmental")}</select></div>
+      <div class="preview" data-preview></div>
+    </div>
+    <div style="margin-top:12px">
+      <button class="btn secondary" data-act="save">Save</button>
+      <button class="btn secondary" data-act="reset">Reset to default</button>
+      <button class="btn secondary" data-act="export">Export pack…</button>
+      <button class="btn secondary" data-act="import">Import pack…</button>
+    </div>
+    <div class="result" data-result></div>`;
+
+  const result = el.querySelector("[data-result]");
+  const say = (good, text) => { result.className = `result ${good ? "good" : "bad"}`; result.textContent = text; };
+  const collectSheet = () => {
+    const data = { title: card.title, meters: [] };
+    el.querySelectorAll("[data-f]").forEach((f) => { data[f.dataset.f] = f.value; });
+    el.querySelectorAll("[data-meter-label]").forEach((input) => {
+      const i = input.dataset.meterLabel;
+      const curve = el.querySelector(`[data-meter-curve="${i}"]`).value;
+      if (input.value.trim()) data.meters.push({ label: input.value.trim(), curve });
+    });
+    return data;
+  };
+  const preview = async () => {
+    const hero = await api().preview(card.key, el.querySelector("[data-preview-state]").value,
+      el.querySelector("[data-preview-level]").value, collectSheet());
+    el.querySelector("[data-preview]").innerHTML = previewHtml(hero);
+  };
+  el.querySelectorAll("[data-f], [data-meter-label], [data-meter-curve], [data-preview-state], [data-preview-level]")
+    .forEach((f) => f.addEventListener("change", preview));
+  preview();
+
+  el.querySelector('[data-act="save"]').addEventListener("click", async () => {
+    const saved = await api().save_personality(card.key, collectSheet());
+    Object.assign(card, saved, { title: card.title, verified: card.verified });
+    drawCard(card);
+    Object.keys(drawn).forEach((k) => delete drawn[k]);
+    const again = document.querySelector(`[data-card="${CSS.escape(card.key)}"] [data-result]`);
+    again.className = "result good"; again.textContent = "Saved.";
+  });
+  el.querySelector('[data-act="reset"]').addEventListener("click", async () => {
+    await api().reset_personality(card.key, null);
+    Object.keys(drawn).forEach((k) => delete drawn[k]);
+    renderPersonalities();
+  });
+  el.querySelector('[data-act="export"]').addEventListener("click", async () => {
+    const r = await api().export_pack(card.key);
+    if (r.cancelled) return;
+    say(r.ok, r.ok ? `Saved to ${r.path}` : r.error);
+  });
+  el.querySelector('[data-act="import"]').addEventListener("click", async () => {
+    const r = await api().import_pack(card.key);
+    if (r.cancelled) return;
+    if (!r.ok) return say(false, r.error);
+    await renderPersonalities();
+    const again = document.querySelector(`[data-card="${CSS.escape(card.key)}"] [data-result]`);
+    again.className = "result good";
+    again.textContent = r.dropped.length ? `Imported. Left out: ${r.dropped.join("; ")}` : "Imported.";
+  });
+  el.querySelectorAll("[data-edit-pool]").forEach((b) => b.addEventListener("click", () => openPool(card, b.dataset.editPool, el)));
+}
+
+function previewHtml(hero) {
+  const f = hero.facts || {};
+  const meters = (hero.meters || []).map((m) => `
+    <span class="m-label">${esc(m.label)}</span><span class="m-bar"><span style="width:${Number(m.value)}%"></span></span><span class="m-value">${Number(m.value)}</span>`).join("");
+  return `
+    <div class="preview-head"><img src="${esc(poses[hero.pose] || "")}" alt=""><div>
+      <div class="state-word state-${esc(hero.state)}" style="font-size:15px;margin:0">${esc(hero.state_word)}</div>
+      <div class="muted">${esc(f.programme || "")}${f.remaining ? ` · ${esc(f.remaining)}` : ""}</div></div></div>
+    ${hero.aside ? `<p class="aside">${esc(hero.aside)}</p>` : '<p class="muted">(no remark at this level)</p>'}
+    ${meters ? `<div class="meters">${meters}</div>` : ""}`;
+}
+
+async function openPool(card, pool, el) {
+  const editor = el.querySelector("[data-pool-editor]");
+  const data = await api().personality_pool(card.key, pool);
+  const added = [...data.added];
+  const draw = () => {
+    editor.hidden = false;
+    editor.innerHTML = `
+      <div class="label">${esc(data.label.toUpperCase())}</div>
+      <label class="check"><input type="checkbox" data-replace ${data.replace ? "checked" : ""}> Use only my lines</label>
+      ${data.shipped.map((l, i) => `<label class="check line"><input type="checkbox" data-ship="${i}" ${l.disabled ? "" : "checked"}> <span>${esc(l.text)}</span></label>`).join("")}
+      <div class="muted" style="margin-top:8px">Your lines</div>
+      ${added.map((l, i) => `<div class="own-line"><span>${esc(l)}</span><button class="link" data-remove="${i}">Remove</button></div>`).join("") || '<p class="muted">None yet.</p>'}
+      <div class="field" style="grid-template-columns:1fr auto"><input type="text" data-new placeholder="Use {name} for the appliance, {household} for the humans"><button class="btn secondary" data-add>Add</button></div>
+      <div class="result" data-check></div>
+      <button class="btn" data-save-pool>Save lines</button>
+      <button class="btn secondary" data-reset-pool>Reset these lines</button>
+      <button class="btn secondary" data-close-pool>Close</button>`;
+    const input = editor.querySelector("[data-new]");
+    const out = editor.querySelector("[data-check]");
+    let timer = null;
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        if (!input.value.trim()) { out.textContent = ""; return; }
+        const c = await api().check_line(pool, input.value);
+        out.className = `result ${c.ok ? (c.warnings.length ? "" : "good") : "bad"}`;
+        out.textContent = c.ok ? (c.warnings.join(" ") || "Looks fine.") : c.refused;
+      }, 250);
+    });
+    editor.querySelector("[data-add]").addEventListener("click", async () => {
+      const c = await api().check_line(pool, input.value);
+      if (!c.ok) { out.className = "result bad"; out.textContent = c.refused; return; }
+      added.push(input.value.trim());
+      draw();
+    });
+    editor.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => { added.splice(Number(b.dataset.remove), 1); draw(); }));
+    editor.querySelectorAll("[data-ship]").forEach((b) => b.addEventListener("change", () => { data.shipped[Number(b.dataset.ship)].disabled = !b.checked; }));
+    editor.querySelector("[data-replace]").addEventListener("change", (e) => { data.replace = e.target.checked; });
+    editor.querySelector("[data-save-pool]").addEventListener("click", async () => {
+      const disabled = data.shipped.filter((l) => l.disabled).map((l) => l.text);
+      const r = await api().save_pool(card.key, pool, disabled, added, data.replace);
+      editor.hidden = true;
+      await renderPersonalities();
+      const again = document.querySelector(`[data-card="${CSS.escape(card.key)}"] [data-result]`);
+      again.className = `result ${r.refused.length ? "bad" : "good"}`;
+      again.textContent = r.refused.length ? `Saved, except: ${r.refused.join("; ")}` : "Lines saved.";
+    });
+    editor.querySelector("[data-reset-pool]").addEventListener("click", async () => {
+      await api().reset_personality(card.key, pool);
+      editor.hidden = true;
+      renderPersonalities();
+    });
+    editor.querySelector("[data-close-pool]").addEventListener("click", () => { editor.hidden = true; });
+  };
+  draw();
 }

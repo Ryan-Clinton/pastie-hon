@@ -13,6 +13,7 @@ import sys
 from pastie.app.client import ServiceClient
 from pastie.app.launch import start_service_if_needed
 from pastie.app.memory import WindowMemory
+from pastie.app.personality import PersonalityStore
 from pastie.app.webview import run
 from pastie.service import paths
 from pastie.service.channel import PipeClient
@@ -22,7 +23,8 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO)
     start_service_if_needed()
     memory = WindowMemory(paths.app_dir() / "window.json")
-    run(ServiceClient(PipeClient().ask), memory)
+    personalities = PersonalityStore(paths.app_dir() / "personalities")
+    run(ServiceClient(PipeClient().ask), memory, personalities)
     return 0
 
 

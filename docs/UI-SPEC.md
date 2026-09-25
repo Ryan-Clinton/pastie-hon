@@ -1,7 +1,7 @@
 # Pastie — the window, redone properly
 
 Status: **approved 2026-09-25, revision 4; being built** on the
-`feature/window-redesign` branch, one phase per commit (§12). Phases 1 and 2
+`feature/window-redesign` branch, one phase per commit (§12). Phases 1 to 5
 are built. Where the build taught us something, the text below says so. It covers the desktop window only. The service, the
 connector, the brain and the messengers don't change, and
 [SPEC.md](SPEC.md) still governs them.
@@ -801,6 +801,13 @@ configured is anything that would make Pastie less trustworthy.
 **Pastie itself** has a sheet for its own stance and a few signature lines. Its
 role as the only narrator isn't configurable, because that's what keeps every
 fact attributed to its source.
+
+**As built (phase 5):** appliance sheets carry every field above. The
+Household's and Pastie's sheets hold a name and their own lines. Their *stance*
+is left out until something on screen would use it, because a setting that
+changes nothing would mislead. Speech stays switched off, marked "needs a service
+change" (§11, question 8). Pools are addressed by name, so a narration stage and
+a reactive remark may never share one: the finished remark is `finished_aside`.
 
 **The limits no configuration can cross.** These are enforced in the
 presenter, not left to good behaviour:

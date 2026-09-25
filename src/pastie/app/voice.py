@@ -17,7 +17,9 @@ Three things to know before adding a line:
   for them.
 
 `{name}` and `{Name}` are the appliance's name as the owner has configured it
-("the dryer", "Big Dave"), lower and sentence case.
+("the dryer", "Big Dave"), lower and sentence case. `{household}` and
+`{household_s}` are what Pastie calls the humans ("the Household", "the
+Household's"), also configurable (UI-SPEC 7.9).
 """
 
 from __future__ import annotations
@@ -45,14 +47,14 @@ NARRATION: dict[str, tuple[str, ...]] = {
         "{Name} is off duty. Pastie remains on duty, which is the arrangement.",
     ),
     "armed": (
-        "{Name} has made itself available. Pastie awaits the Household's instructions.",
+        "{Name} has made itself available. Pastie awaits {household_s} instructions.",
         "Remote mode is on. {Name} is ready to take instructions, having first insisted on a visit.",
         "{Name} is standing by. Pastie has its pen ready, in case anything happens.",
         "Everything is in order for a start. Pastie merely needs to be told which one.",
         "{Name} has been dialled to Remote and is now, in principle, co-operative.",
         "The paperwork for a start is prepared. Only the programme is left blank.",
         "{Name} is armed and attentive. Pastie is attentive too, but was already.",
-        "A start can be arranged at the Household's convenience. Pastie has cleared its afternoon.",
+        "A start can be arranged at {household_s} convenience. Pastie has cleared its afternoon.",
         "{Name} awaits a programme. It has not expressed a preference, which Pastie respects.",
         "Remote control is available, following the customary personal visit to {name}.",
         "Pastie and {name} are both ready. This is the most they have agreed on all week.",
@@ -95,7 +97,7 @@ NARRATION: dict[str, tuple[str, ...]] = {
         "{Name} is finishing up. Pastie has alerted nobody, as nothing has yet happened.",
         "Almost done. The socks, if they are going, will go now.",
         "{Name} is in its closing remarks. They are long, warm and mostly rotation.",
-        "The cycle is concluding. Pastie is ready to inform the Household the moment it is true.",
+        "The cycle is concluding. Pastie is ready to inform {household} the moment it is true.",
         "Very nearly finished. Pastie would say 'finished', but it is not yet in a position to know.",
         "{Name} has slowed to a thoughtful tumble. Pastie is giving it the time it needs.",
         "The last few minutes. Pastie is watching the counter the way others watch a kettle.",
@@ -182,7 +184,7 @@ ASIDES: dict[str, tuple[str, ...]] = {
         "{Name} is asking for its filter to be seen to. It asks politely, by counting.",
         "Maintenance is recommended by {name}, who has kept an exact tally.",
     ),
-    "finished": (
+    "finished_aside": (
         "Its part of the arrangement is complete.",
         "The machine is finished. The clothes have been transferred to your department.",
         "{Name} has concluded its business and would like the laundry collected at your convenience.",
@@ -224,6 +226,158 @@ POKED: tuple[str, ...] = (
     "The Division is open. Pastie is the Division. Please take a number.",
     "Pastie is fine, thank you for asking, if that is what this was.",
 )
+
+# ------------------------------------------------------- temperaments
+#
+# UI-SPEC 7.9: an appliance's temperament chooses which shipped lines it draws
+# on. The narration above was written from the dryer's observed behaviour,
+# which is Indecisive; every other temperament adds its own lines to it, by
+# stage group. Custom draws only on the owner's own lines.
+
+TEMPERAMENTS = ("Diligent", "Indecisive", "Dramatic", "Aloof", "Weary", "Cheerful", "Custom")
+
+TEMPERAMENT_LINES: dict[str, dict[str, tuple[str, ...]]] = {
+    "Diligent": {
+        "running": (
+            "{Name} is working steadily and to schedule. Pastie has nothing to correct, and finds this unsettling.",
+            "{Name} is doing precisely what was asked, in the order it was asked. Pastie approves.",
+            "Diligence is being shown by {name}. Pastie has recorded it in the good column.",
+            "{Name} has not deviated from the plan once. Pastie is keeping an eye on it anyway, out of habit.",
+        ),
+        "finished": (
+            "{Name} has finished exactly as undertaken. Pastie has filed the result under 'as expected'.",
+            "Completed, on time and without fuss. {Name} would like no fuss made about it, and Pastie obliges.",
+            "{Name} reports the task complete, and has already tidied up after itself.",
+            "The work is done. {Name} has asked for no recognition. Pastie is recording some anyway.",
+        ),
+        "idle": (
+            "{Name} is idle, but ready, in the manner of something that has read the manual.",
+            "{Name} is resting between duties. It would describe this as maintenance.",
+            "No work is scheduled. {Name} has used the time to be prepared.",
+            "{Name} awaits instructions with its usual quiet competence.",
+        ),
+    },
+    "Dramatic": {
+        "running": (
+            "{Name} has thrown itself into the cycle as if the fate of the house depended on it.",
+            "{Name} is tumbling with enormous feeling. Pastie is reporting only the facts.",
+            "Every rotation is an event, according to {name}. Pastie has counted them as rotations.",
+            "{Name} has declared this cycle the most important of its career. It said so about the last one.",
+        ),
+        "finished": (
+            "{Name} has finished, and would like a moment to recover before anyone opens the door.",
+            "It is over. {Name} describes the experience as transformative. Pastie describes it as dry.",
+            "{Name} has taken a bow. Pastie has noted the bow, and the laundry, which is ready.",
+            "Completion has been achieved, as {name} would have it, against all odds. There were no odds.",
+        ),
+        "idle": (
+            "{Name} is idle, and would like everyone to know how much it misses the work.",
+            "{Name} rests, in a pose that suggests it has been wronged.",
+            "Nothing is happening. {Name} regards this as a tragedy in several acts.",
+            "{Name} has been left alone with its thoughts, and has a great many of them.",
+        ),
+    },
+    "Aloof": {
+        "running": (
+            "{Name} is running and has not seen fit to discuss it with Pastie.",
+            "{Name} is getting on with things and prefers not to be watched. Pastie watches discreetly.",
+            "Progress is being made. {Name} regards the details as its own business.",
+            "{Name} has acknowledged Pastie with the barest of status updates. Pastie is used to it.",
+        ),
+        "finished": (
+            "{Name} has finished and would rather not make a thing of it.",
+            "Done. {Name} has withdrawn to a dignified silence.",
+            "{Name} reports completion in the fewest possible words, which is to say one.",
+            "The cycle is complete. {Name} does not require thanks, or indeed conversation.",
+        ),
+        "idle": (
+            "{Name} is idle and has made itself unavailable for comment.",
+            "{Name} is keeping to itself. Pastie respects its privacy, and its schedule.",
+            "Nothing to report. {Name} would like that to remain the case.",
+            "{Name} rests, aloof, above the concerns of the laundry basket.",
+        ),
+    },
+    "Weary": {
+        "running": (
+            "{Name} is working, again. It has asked Pastie to note that it has done this before.",
+            "{Name} is tumbling with the air of something that has seen a great many socks.",
+            "Another cycle. {Name} is getting through it the way it gets through all of them.",
+            "{Name} is carrying on. Pastie admires the carrying on, if not the sighing.",
+        ),
+        "finished": (
+            "{Name} has finished, and would like to sit down, figuratively.",
+            "Done, at last. {Name} does not expect this to be the end of it.",
+            "{Name} has completed another cycle and added it to a very long list.",
+            "Finished. {Name} is already bracing itself for the next basket.",
+        ),
+        "idle": (
+            "{Name} is resting. It has earned it, and would like that acknowledged.",
+            "{Name} is idle, for now. It knows better than to call it a holiday.",
+            "Nothing is running. {Name} is enjoying it while it lasts.",
+            "{Name} is having a quiet moment. It has had very few of them.",
+        ),
+    },
+    "Cheerful": {
+        "running": (
+            "{Name} is tumbling away with great enthusiasm. Pastie reports the enthusiasm at face value.",
+            "{Name} is having a lovely time. Pastie has checked, and it is also drying.",
+            "{Name} is delighted to be working. Pastie is delighted that somebody is.",
+            "Round and round goes {name}, cheerfully. Pastie counts the cheer as a secondary output.",
+        ),
+        "finished": (
+            "{Name} has finished and is very pleased with how it went.",
+            "All done. {Name} would like to thank everyone involved, which is mostly the laundry.",
+            "{Name} reports completion with evident satisfaction. It will happily do it again.",
+            "Finished, and {name} is beaming, in so far as a drum can beam.",
+        ),
+        "idle": (
+            "{Name} is idle and in excellent spirits about it.",
+            "{Name} is resting, and looking forward to the next load with unusual optimism.",
+            "Nothing is happening, and {name} is making the best of it.",
+            "{Name} is ready whenever {household} is, and very much hopes it is soon.",
+        ),
+    },
+}
+
+# ------------------------------------------------------------- stances
+#
+# How Pastie reports and negotiates with a cast member (UI-SPEC 7.9), drawn on
+# in Departmental narration alongside the stage lines.
+
+STANCES = ("Professional", "Deferential", "Firm", "Weary", "Fond")
+
+STANCE_LINES: dict[str, tuple[str, ...]] = {
+    "Professional": (
+        "Pastie has recorded {name}'s position and will report any change.",
+        "Pastie and {name} maintain a correct working relationship, and a tidy file.",
+        "{Name}'s status has been noted, cross-referenced and filed.",
+        "Pastie is monitoring {name} to the usual standard.",
+    ),
+    "Deferential": (
+        "Pastie would not dream of hurrying {name}.",
+        "Pastie defers entirely to {name}'s judgement on the matter of time.",
+        "{Name} knows best. Pastie merely takes the minutes.",
+        "Pastie is at {name}'s disposal, as ever, and at a respectful distance.",
+    ),
+    "Firm": (
+        "Pastie has reminded {name} of its obligations, politely but clearly.",
+        "Pastie is holding {name} to its estimate. Firmly.",
+        "{Name} has been told that Pastie is watching. It is.",
+        "Pastie expects {name} to finish as undertaken, and has written that down.",
+    ),
+    "Weary": (
+        "Pastie has seen {name} do this before. Pastie will see it again.",
+        "Pastie is monitoring {name} with the patience of long acquaintance.",
+        "{Name} is behaving exactly as Pastie feared it would, which is to say normally.",
+        "Pastie has stopped being surprised by {name}, and finds this restful.",
+    ),
+    "Fond": (
+        "Pastie is, if it is honest, rather proud of {name}.",
+        "Pastie is keeping a fond eye on {name}, and a fonder file.",
+        "{Name} is doing its best, and Pastie thinks that is quite enough.",
+        "Pastie would like it recorded that {name} is a credit to the household.",
+    ),
+}
 
 # ------------------------------------------------------------ fixed phrases
 
@@ -306,7 +460,7 @@ EMPTY_NO_APPLIANCE = {
 ONBOARDING_ASIDES = {
     "appliances": "Pastie is introducing itself to the household machinery.",
     "messengers": "Pastie will need someone to carry messages.",
-    "tested": "The chain from appliance to Household is complete.",
+    "tested": "The chain from appliance to household is complete.",
 }
 
 # ----------------------------------------------------------------- the Guide

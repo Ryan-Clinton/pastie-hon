@@ -398,3 +398,17 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
   animation: none !important;
   transition: none !important;
 }
+
+/* ------------------------------------------------------------- personalities */
+
+.pools { display: grid; gap: 2px; }
+.pool-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.pool-row:last-child { border-bottom: 0; }
+.pool-editor { margin-top: 10px; padding: 12px; border-radius: var(--radius-sm); background: var(--card-hi); }
+.pool-editor .line { align-items: flex-start; font-size: 12px; }
+.own-line { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.meter-edit { display: grid; grid-template-columns: 1fr 110px; gap: 6px; margin: 4px 0; }
+.preview-box { margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: var(--radius-sm); }
+.preview-box select { width: auto; margin-left: 6px; padding: 3px 6px; }
+.preview-head { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+.preview-head img { width: 48px; height: 48px; }

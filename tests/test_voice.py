@@ -20,7 +20,7 @@ MINIMUM = {
     "scheduled": 6,
 }
 
-ALLOWED_FIELDS = {"name", "Name", "minutes", "before", "after", "count"}
+ALLOWED_FIELDS = {"name", "Name", "minutes", "before", "after", "count", "household", "household_s"}
 
 
 def every_line() -> list[str]:
@@ -28,6 +28,11 @@ def every_line() -> list[str]:
     for pool in voice.NARRATION.values():
         lines.extend(pool)
     for pool in voice.ASIDES.values():
+        lines.extend(pool)
+    for groups in voice.TEMPERAMENT_LINES.values():
+        for pool in groups.values():
+            lines.extend(pool)
+    for pool in voice.STANCE_LINES.values():
         lines.extend(pool)
     lines.extend(voice.POKED)
     lines.extend(voice.IDLE_LINE.values())
@@ -68,6 +73,8 @@ def test_every_narration_and_aside_line_fits_the_hero() -> None:
     for pool in [*voice.NARRATION.values(), *voice.ASIDES.values(), voice.POKED]:
         for line in pool:
             filled = line.format(
+                household="the Household",
+                household_s="the Household's",
                 name="the tumble dryer",
                 Name="The tumble dryer",
                 minutes=120,
@@ -100,3 +107,18 @@ def test_placeholders_are_only_the_ones_the_presenter_fills() -> None:
     for line in every_line():
         fields = {name for _, name, _, _ in string.Formatter().parse(line) if name}
         assert fields <= ALLOWED_FIELDS, line
+
+
+def test_every_temperament_and_stance_has_its_lines() -> None:
+    for temperament in voice.TEMPERAMENTS:
+        if temperament in ("Indecisive", "Custom"):
+            continue  # Indecisive is the base narration; Custom is the owner's
+        for group in ("running", "finished", "idle"):
+            assert len(voice.TEMPERAMENT_LINES[temperament][group]) >= 4
+    for stance in voice.STANCES:
+        assert len(voice.STANCE_LINES[stance]) >= 4
+
+
+def test_stage_names_and_remark_names_never_collide() -> None:
+    """The personality editor addresses pools by name, so a name must mean one pool."""
+    assert not set(voice.NARRATION) & set(voice.ASIDES)
