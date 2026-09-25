@@ -25,11 +25,13 @@ import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
+from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Any
 
 from pastie.app.client import ServiceClient, ServiceUnavailableError
 from pastie.app.launch import start_service_if_needed
+from pastie.app.ordeal import REAL, Ordeal, ordeal_for
 from pastie.messengers.base import OVERRIDES
 from pastie.service.channel import PipeClient
 
@@ -48,6 +50,9 @@ AMBER = "#e0a03c"
 RED = "#e2664f"
 FIELD = "#eef1f6"
 INK = "#171a20"
+
+#: How many 0-100 meters the ordeal panel has room for.
+METER_ROWS = 4
 
 STATE_COLOURS = {
     "running": GREEN,
@@ -131,6 +136,7 @@ class App(tk.Tk):
         self._settings_loaded = False
 
         self.title("Pastie")
+        _set_icon(self)
         self.configure(bg=BG)
         self.geometry("620x760")
         self.minsize(560, 640)
@@ -202,8 +208,38 @@ class App(tk.Tk):
         )
         self.detail_label.pack(anchor="w")
 
-        self.progress_bar = ttk.Progressbar(card, mode="determinate", maximum=100)
-        self.progress_bar.pack(fill="x", pady=(12, 0))
+        # What the pastie is going through, in place of a progress bar. The
+        # first meter is the real progress; see pastie.app.ordeal.
+        self.ordeal_label = tk.Label(
+            card,
+            text="",
+            bg=CARD,
+            fg=CRUST,
+            font=("Segoe UI", 10, "italic"),
+            justify="left",
+            anchor="w",
+        )
+        self.ordeal_label.pack(anchor="w", fill="x", pady=(12, 6))
+        # Wrap to the card's real width; a fixed wraplength clips on a narrow window.
+        self.ordeal_label.bind(
+            "<Configure>", lambda event: event.widget.configure(wraplength=event.width - 8)
+        )
+        meters = tk.Frame(card, bg=CARD)
+        meters.pack(fill="x")
+        meters.columnconfigure(1, weight=1)
+        self._meter_rows: list[tuple[tk.Label, ttk.Progressbar, tk.Label]] = []
+        for row in range(METER_ROWS):
+            name = tk.Label(
+                meters, text="", bg=CARD, fg=MUTED, font=("Segoe UI", 9), width=24, anchor="w"
+            )
+            bar = ttk.Progressbar(meters, mode="determinate", maximum=100)
+            value = tk.Label(
+                meters, text="", bg=CARD, fg=TEXT, font=("Segoe UI", 9), width=4, anchor="e"
+            )
+            name.grid(row=row, column=0, sticky="w", pady=1)
+            bar.grid(row=row, column=1, sticky="ew", padx=6, pady=1)
+            value.grid(row=row, column=2, sticky="e", pady=1)
+            self._meter_rows.append((name, bar, value))
 
         controls = self._card(page)
         tk.Label(
@@ -793,7 +829,13 @@ class App(tk.Tk):
         self.detail_label.configure(text="\n".join(lines))
 
         progress = appliance.get("progress")
-        self.progress_bar.configure(value=0 if progress is None else float(progress) * 100)
+        ordeal = ordeal_for(
+            state,
+            None if progress is None else float(progress),
+            attention=appliance.get("attention"),
+            seed=f"{self._appliance}/{appliance.get('programme') or ''}",
+        )
+        self._show_ordeal(ordeal)
 
         self._show_controls(appliance)
 
@@ -804,6 +846,20 @@ class App(tk.Tk):
         )
         if status.get("command"):
             self.command_label.configure(text="\n".join(status["command"]))
+
+    def _show_ordeal(self, ordeal: Ordeal) -> None:
+        self.ordeal_label.configure(text=ordeal.headline)
+        for index, (name, bar, value) in enumerate(self._meter_rows):
+            if index < len(ordeal.meters):
+                meter = ordeal.meters[index]
+                name.configure(text=meter.label, fg=TEXT if meter.label == REAL else MUTED)
+                value.configure(text=f"{meter.value}")
+                bar.configure(value=meter.value)
+                for widget in (name, bar, value):
+                    widget.grid()
+            else:
+                for widget in (name, bar, value):
+                    widget.grid_remove()
 
     def _programme_chosen(self, *_event: object) -> None:
         """Fill the setting dropdowns with what the chosen programme allows."""
@@ -933,8 +989,41 @@ def _wheel(canvas: tk.Canvas, event: Any) -> None:
     canvas.yview_scroll(int(-event.delta / 120), "units")
 
 
+#: Windows groups taskbar buttons by this, not by the window. Without it the
+#: window counts as pythonw.exe and the taskbar shows Python's icon.
+APP_ID = "Pastie.Appliance.Companion"
+
+ICON = Path(__file__).with_name("pastie.ico")
+
+
+def _set_icon(window: tk.Tk) -> None:
+    """The burger, on the window and in the taskbar. Cosmetic: never fatal."""
+    if sys.platform != "win32":
+        return  # Tk on Linux and macOS cannot read .ico files
+    try:
+        # Untyped in the bundled tkinter stubs, like Combobox.get.
+        window.wm_iconbitmap(default=str(ICON))  # type: ignore[no-untyped-call]
+    except tk.TclError as error:
+        log.warning("could not set the window icon: %s", error)
+
+
+def _claim_taskbar_identity() -> None:
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    try:
+        set_app_id = ctypes.WinDLL("shell32").SetCurrentProcessExplicitAppUserModelID
+        set_app_id.argtypes = [ctypes.c_wchar_p]
+        set_app_id(APP_ID)
+    except (AttributeError, OSError) as error:
+        log.warning("could not set the taskbar identity: %s", error)
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO)
+    # Before any window exists - Windows reads it when the first one appears.
+    _claim_taskbar_identity()
     # Two processes is an implementation detail, not something to make somebody
     # open a terminal for. If the background half is not up, start it.
     starting = start_service_if_needed()

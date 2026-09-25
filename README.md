@@ -97,6 +97,11 @@ away from the code and start lying.
   the machine actually started rather than whether the server accepted the request
 - **Tells you when the filter needs cleaning** — the appliance keeps its own
   service schedule and nobody had noticed
+- **Shows a cycle as something the pastie goes through**, not a progress bar: a
+  line of narration and four meters from 0 to 100. The first meter is the real
+  progress and says so. The others are Crispiness, Existential dread and Sock
+  escape probability. A fault or a full tank is still said plainly.
+  ([`app/ordeal.py`](src/pastie/app/ordeal.py))
 
 ## What it isn't
 
@@ -364,6 +369,54 @@ date window it actually covered — so "no matches" can be told apart from "that
 session has been pruned". `scripts/claude-transcript-archive.ps1` keeps the
 archive fed; it mirrors and never deletes. Neither script sends anything
 anywhere, and the transcripts live outside the repository.
+
+## Why a pastie?
+
+*An entry from a guidebook nobody has been able to find a second copy of*
+
+Many civilisations across the galaxy have tried to put something in charge of
+their household appliances. Most of them chose wrongly.
+
+The Vl'hurg put in a supercomputer. It spent eleven thousand years working out
+the perfect drying temperature for a sock, then announced the answer was
+"damp", and was switched off by a committee that had long since forgotten why it
+had been switched on.
+
+The Consolidated Appliance Syndicate of Grenthe sold everyone a kettle with
+feelings. It was so relentlessly cheerful about boiling that three planets gave
+up hot drinks altogether, and a fourth gave up on planets.
+
+A small island on a damp planet chose a pastie.
+
+A pastie, for the benefit of those from more fortunate star systems, is minced
+meat and potato, pressed into a disc, dipped in batter and deep-fried. It is
+served in a bap. It has no processor, no network stack and no opinions. For
+running a house, this makes it the most qualified candidate ever found.
+
+Consider its record:
+
+- **It has already been through worse.** Anything that has survived being
+  battered and deep-fried at 180 degrees regards a tumble dryer as a mild day
+  out. Nothing in a laundry room can frighten it.
+- **It cannot be hacked.** Many have tried. The best any of them managed was to
+  make it slightly soggy.
+- **It keeps records.** When the water tank fills, it doesn't sound an alarm.
+  It notes the time, the circumstances and the tank, and points out, calmly,
+  that somebody should really do something about it.
+- **It is round.** The drum is round. It has been suggested that the universe
+  is round too. The pastie has never confirmed this, but has never been seen to
+  disagree, which is more than can be said for most cosmologists.
+- **It is always warm.** Any system that runs warm and never complains has, by
+  definition, found its purpose in life.
+
+Scholars still argue over why the pastie wanted the job. The most widely
+accepted theory is that it didn't, and was not consulted. This is also how most
+people come to run things, and it goes a long way to explaining the state of
+most things.
+
+And the socks? The pastie knows where they go. It isn't going to tell you. Some
+knowledge is too heavy for a household to carry, and the pastie, being fried, is
+already quite heavy enough.
 
 ## Licence
 

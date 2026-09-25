@@ -421,3 +421,19 @@ def test_the_wheel_does_not_change_what_a_dropdown_says(window: Any) -> None:
     """
     for box in (window.programme_box, window.dryness_box, window.temperature_box):
         assert box.bind("<MouseWheel>"), f"{box} would still cycle on the wheel"
+
+
+def test_the_taskbar_icon_ships_with_the_package() -> None:
+    from pastie.app.main import ICON
+
+    assert ICON.is_file()  # a missing icon is logged, not raised, so check here
+
+
+def test_the_pastie_endures_the_cycle_instead_of_a_progress_bar(window: Any) -> None:
+    window._show_status(STATUS)  # running, halfway
+
+    assert window.ordeal_label.cget("text")
+    name, bar, value = window._meter_rows[0]
+    assert name.cget("text") == "Doneness (real)"
+    assert value.cget("text") == "50"
+    assert float(bar.cget("value")) == 50

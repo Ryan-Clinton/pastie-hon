@@ -701,6 +701,431 @@ credentials expire mid-cycle, and the Windows service question from experiment
 
 ---
 
+## 17. The delight contract
+
+> **Status: proposed, not yet built.** Sections 17-20 came from the first design
+> audit of the window (2026-09-25). They describe how Pastie should speak;
+> [UI-SPEC.md](UI-SPEC.md) is the plan for building it. Until it is built, the
+> code is right where the two disagree, as for the rest of this document.
+
+Pastie should have a personality, but the personality must never be allowed to
+change a fact, hide a control, delay an action, or make a serious situation less
+clear.
+
+The premise is simple: **Pastie behaves like a tiny, excessively conscientious
+office whose entire remit is liaison between people and domestic machinery.** It
+takes this job completely seriously. The appliances, cloud services and network
+connections provide all the absurdity required.
+
+This is deliberately not a sarcastic assistant and not a comedy character that
+happens to know whether the dryer is running. Pastie is useful first. The humour
+comes from calm, precise descriptions of things that are already slightly
+ridiculous: a server accepting a command that the machine ignores, a dryer that
+changes its mind about the remaining time, or a remote-control system that first
+requires somebody to walk over to the machine.
+
+**Pastie itself is the competent operative, not an abstract institution.** It
+is the working employee of the **Domestic Appliance Liaison Division** of PASTIE,
+the *Practical Appliance Supervision, Telemetry & Interoperability Executive*.
+About admits that the acronym was developed considerably later than the name.
+The institution exists only to give the departmental language somewhere to come
+from. It is not lore to be expanded for its own sake.
+
+**Pastie is the controller, and the rest of the house is its cast.** Every
+appliance, and the humans (the Household), has a personality that Pastie
+negotiates with. Pastie is the only narrator: the others appear only as reported
+speech and reported positions ("The dryer currently believes 47 minutes
+remain"), which also keeps every fact attributed to its source. A personality
+is written from an appliance's observed behaviour, only once its type is
+verified. **Every personality, and how Pastie deals with each one, is
+configurable by the owner**: names, temperaments, Pastie's stance, lines and
+meters. The limits in [UI-SPEC.md](UI-SPEC.md) §7.9 apply: no configuration can
+change a fact, soften a warning, error or safety message, or earn the
+thumbs-up. The Household are the principals Pastie works for, and never the
+punchline. Pastie is a whole-house controller: a washer is expected, a smart projector is on its
+way, and other sources, such as solar panels, may follow. [UI-SPEC.md](UI-SPEC.md) §7.3 holds
+the cast.
+
+The mascot artwork (a battered pastie in a gold shield, giving a thumbs-up) is
+warm, heroic and rather cute. The voice is dry, officious and restrained. **That
+mismatch is kept on purpose.** Pastie looks as if it ought to say "Yay! Your
+laundry is finished!", and instead says "Tumble dryer finished. Its part of the
+arrangement is complete."
+
+### Pastie's laws: the five administrative principles
+
+These are design principles for anybody contributing. They aren't necessarily
+shown to users.
+
+1. **Pastie does not claim to know what it does not know.**
+2. **A cloud service's opinion is not evidence that an appliance complied.**
+3. **The user should never suffer for the sake of a joke.**
+4. **Routine competence deserves less attention than exceptional information.**
+5. **When machinery behaves absurdly, accurate description is usually
+   sufficient comedy.**
+
+A corollary for the mascot: **Pastie never gives the thumbs-up unless Pastie
+knows.** The confirmed pose appears only on machine-confirmed state.
+
+### Voice rules
+
+1. **Fact first; wit second.** The first sentence must remain useful if the second
+   sentence is removed.
+2. **Pastie is on the user's side.** The user is never the punchline. Neither are
+   accessibility needs, mistakes, forgotten maintenance or failed commands.
+3. **Precision is funnier than wackiness.** Prefer an unnecessarily exact account
+   of what happened over a random joke.
+4. **Never manufacture friction for comedy.** Pastie may describe bureaucracy; it
+   must never create bureaucracy.
+5. **Do not joke over danger.** Appliance faults, safety interlocks, credential
+   problems and anything requiring immediate action use plain language.
+6. **Do not borrow somebody else's catchphrases.** No Hitchhiker quotations,
+   towels, 42s, depressed robots or "don't panic" jokes. The voice has to become
+   recognisably Pastie's own.
+7. **A joke earns its place by explaining the system, rewarding attention or
+   making repetition nicer.** If it only demonstrates that the writer can make a
+   joke, cut it.
+8. **Restraint is part of the voice.** One good aside on a screen is better than
+   five competing for attention.
+
+### Personality level
+
+Personality is user-selectable:
+
+| Setting | Behaviour |
+|---|---|
+| **Plain** | Facts only. No asides, jokes or playful labels. |
+| **Dry** | Occasional short deadpan asides. Recommended default. |
+| **Departmental** | Full Pastie voice: official-sounding headings, richer asides and callbacks. |
+
+Changing this setting changes presentation only. It never changes event
+detection, command behaviour, severity, logging or the factual part of a
+message.
+
+Serious fault and safety messages ignore the personality setting and remain
+plain in every mode.
+
+---
+
+## 18. The copy architecture
+
+Comedy text must not be scattered through the event engine. The brain emits a
+canonical fact. The presentation layer may decorate that fact.
+
+Conceptually, an event presented to a person has:
+
+```
+headline        required, factual, short
+fact            required, canonical description of what happened
+next_action     optional, factual instruction
+aside_key       optional, identifies an authored pool of personality lines
+severity        info | maintenance | warning | error | safety
+```
+
+The event log stores the canonical facts, not whichever joke happened to be
+shown on screen. A redraw must not produce a different interpretation of the
+same event.
+
+If an `aside_key` has several variants, choose one deterministically for the
+event ID and remember it. The same event therefore does not visibly rewrite
+itself every time the app refreshes. A later event may get a different variant.
+
+All personality copy is authored and shipped with Pastie. Runtime-generated copy
+must not be used for appliance state, faults, commands or instructions. A utility
+that controls real hardware should not improvise its meaning.
+
+### Repetition rules
+
+Routine state should become quieter, not louder, with repetition. The first
+interesting occurrence may get an aside; repeated occurrences use the factual
+line unless there is genuinely new context.
+
+A notification should normally contain one fact and, at most, one short aside.
+The desktop app can afford longer optional text because the user has chosen to
+open it.
+
+---
+
+## 19. Where the personality lives
+
+### The home screen
+
+The main card stays operationally boring in the best possible way:
+
+```
+Tumble dryer                         RUNNING
+Mixed / Ready to wear
+About 47 min remaining               54%
+
+Still estimating. The dryer currently believes 47 minutes remain. Pastie has
+elected not to contradict it.
+```
+
+The status, programme, time and progress are the product. The last line is the
+personality.
+
+When the estimate has settled, the aside disappears rather than inventing
+something else to say.
+
+### Remote control not armed
+
+Factual message:
+
+> Remote start is unavailable. Turn the programme dial to Remote on the dryer
+> first.
+
+Optional Dry/Departmental aside:
+
+> The remote-control procedure currently contains a mandatory visit to the
+> dryer.
+
+The disabled button should say **Waiting for Remote mode**, not something jokey.
+Controls stay literal.
+
+### Commands get a paper trail
+
+The existing requested -> accepted -> confirmed sequence should become one of
+Pastie's signature interactions. Present it like a tiny case file:
+
+```
+START CYCLE
+20:41:02  Requested
+20:41:03  Haier accepted the request
+20:41:06  Dryer confirmed RUNNING                    CONFIRMED
+```
+
+Optional aside after confirmation:
+
+> Three separate parties have now agreed that the dryer is on.
+
+If confirmation fails, no punchline:
+
+> Haier accepted the request, but the dryer did not start within 20 seconds.
+> Nothing has been reported as successful.
+
+### Time remaining
+
+Pastie should expose the difference between **machine estimate** and **confidence
+in that estimate** rather than pretending the early number is trustworthy.
+
+Suggested labels:
+
+```
+About 52 min        still estimating
+47 min              settled
+```
+
+Optional early-cycle asides can refer to the estimate changing its mind, but the
+numeric value and confidence label are always unambiguous.
+
+### Unknown really means unknown
+
+Unknown and unverified states are an opportunity for the voice precisely because
+Pastie already refuses to guess.
+
+```
+State unknown
+Pastie has data, but no verified mapping for what this appliance means by it.
+```
+
+Departmental aside:
+
+> Inventing an answer would be quicker. It would also be an answer Pastie made
+> up.
+
+### Gaps and restarts
+
+Recovered events should feel like a useful incident report rather than an
+apology:
+
+```
+1 cycle completed while Pastie was offline
+Last seen running: 20:10
+Completion time: not known
+```
+
+If the cycle counter proves what happened, say so. If it does not, preserve the
+uncertainty. Personality may comment on the gap only after the facts are clear.
+
+### Maintenance
+
+Maintenance is low-stakes and recurring, which makes it ideal for restrained
+personality:
+
+```
+Filter clean due in 2 cycles
+Reported by the appliance: 13 of 15 cycles used
+```
+
+Departmental aside:
+
+> The dryer has begun keeping records. This seems only fair, given what Pastie
+> does for a living.
+
+Never turn maintenance into guilt or a streak that can be "lost". The point is
+to help, not to gamify chores.
+
+### Finished notifications
+
+The factual sentence is stable:
+
+> Tumble dryer finished.
+
+Optional variants may follow it in Dry or Departmental mode, for example:
+
+> Its part of the arrangement is complete.
+
+or:
+
+> The machine is finished. The clothes have been transferred to your department.
+
+Speech notifications should use fewer variants than the desktop app. Spoken
+jokes become irritating much faster than written ones.
+
+### Connectivity
+
+Connectivity messages identify the layer that failed:
+
+```
+Dryer offline
+Last update: 12:17
+Haier login: OK
+Internet connection: OK
+```
+
+A restrained aside is acceptable for an ordinary offline state. Authentication
+failure, corrupt/unrecognised responses and repeated connection failures stay
+plain because the user may need to act.
+
+### Diagnostics: "what we know"
+
+The diagnostics screen should make the project's epistemology visible:
+
+```
+WHAT PASTIE KNOWS
+  Dryer online                       verified
+  Cycle running                      verified
+  Programme: Mixed                   verified
+  Remaining time: 43 min             reported by appliance
+
+WHAT PASTIE IS INFERRING
+  Remaining-time estimate settled    yes
+
+WHAT PASTIE WILL NOT GUESS
+  Unknown raw state 6                no verified mapping
+```
+
+This is useful to contributors and is also one of the most natural places for the
+project's personality.
+
+### Event history: the case file
+
+Call the ordinary screen **History**. In Departmental mode its subtitle may be
+**Case file**.
+
+Events should read like compact evidence:
+
+```
+18:02  Cycle started                  confirmed by dryer
+18:31  Remaining time changed 41 -> 47 min
+19:16  Cycle finished                 cycle counter 104 -> 105
+19:16  Hue kitchen light notified     delivered
+19:16  Kitchen speaker announcement   timed out
+```
+
+This makes the architecture understandable without an architecture diagram.
+
+### Onboarding
+
+Onboarding should prove the useful path quickly:
+
+```
+1. Connect Haier account
+2. Find appliances
+3. Choose how Pastie tells you things
+4. Test one messenger
+```
+
+Personality belongs in the supporting text, not in the buttons or required
+instructions. The final test should create a real, visible success so the user
+understands the chain from appliance event to messenger.
+
+### Settings
+
+Settings can carry small bits of personality because the user is browsing rather
+than reacting to an event. Good candidates are section subtitles, empty states
+and test-result messages.
+
+Do not rename standard concepts beyond recognition. "Notifications" should still
+be called Notifications; "Faffing Department" is funny once and annoying every
+time somebody needs to find a setting.
+
+### About and release notes
+
+These are safe places to turn the dial up.
+
+The About screen can present the real architecture as an unnecessarily formal
+organisation chart:
+
+```
+PASTIE
+Domestic Appliance Liaison
+
+Connector        translates what Haier said
+Brain            decides what actually happened
+Messengers       bother something else about it
+App              tells you what everybody is doing
+```
+
+Release notes may be headed **Minutes of recent proceedings** in Departmental
+mode, but the version number and actual changes remain ordinary text.
+
+---
+
+## 20. Delight that is earned rather than sprayed everywhere
+
+The best surprises should come from state Pastie genuinely knows, not random
+one-liners.
+
+A few examples worth building later:
+
+- A small acknowledgement on the 50th or 100th observed completed cycle, based on
+  the real cycle counter. No points, streaks or rewards; just recognition that
+  the software has history with the appliance.
+- A first-time note when Pastie successfully reconstructs a completion that
+  happened while it was offline. This is a genuinely clever capability and is
+  worth celebrating once.
+- Contextual copy the first time an ETA increases instead of decreases. The joke
+  explains a real behaviour the user would otherwise think was a bug.
+- A hidden but discoverable **What Pastie refuses to guess** diagnostics page for
+  raw/unverified mappings.
+- Small visual stamps such as `CONFIRMED` on command completion and `RECOVERED`
+  on evidenced gap events. They should be accessible text as well as decoration.
+
+Avoid generic achievements such as opening the app ten times, using it at 3am,
+or completing seven loads in a week. Those reward use of Pastie rather than
+understanding the machinery, and quickly become noise.
+
+### Tests for the delight layer
+
+The personality system is not finished until automated tests prove:
+
+```
+Plain, Dry and Departmental modes expose the same canonical facts
+safety events contain no personality aside
+no command is called successful before machine confirmation
+a repeated render keeps the same aside for the same event ID
+logs contain canonical facts rather than personality text
+an unknown/unverified state never gains an interpreted joke-description
+notifications still make sense when the aside is removed
+```
+
+The final editorial test is simpler: **if Pastie stopped being funny, would it
+still be an unusually clear appliance utility?** If the answer is no, the joke is
+carrying information it should not be carrying.
+
+---
+
 ## Appendix — where these facts came from
 
 Everything in section 5 was measured against one real machine, a Haier

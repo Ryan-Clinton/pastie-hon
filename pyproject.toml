@@ -66,7 +66,7 @@ Changelog = "https://github.com/Ryan-Clinton/pastie-hon/blob/main/CHANGELOG.md"
 where = ["src"]
 
 [tool.setuptools.package-data]
-pastie = ["py.typed"]
+pastie = ["py.typed", "app/pastie.ico"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

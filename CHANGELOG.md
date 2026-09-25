@@ -44,6 +44,16 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stopped is not old news - and again if the tank fills twice in one load.
   Found by watching the real machine, not by reading Haier's strings: those
   suggested a phase number, and it is not one.
+- **The pastie goes through the cycle instead of a progress bar.** A line of
+  narration and four meters from 0 to 100. The first is the real progress and
+  says so; the others are Crispiness, Existential dread and Sock escape
+  probability. There are no meters until the machine gives a real number, and a
+  fault or full tank is said plainly. `pastie.app.ordeal` is pure functions,
+  with the lines seeded per cycle so a refresh never changes the story.
+- **The taskbar shows the pastie.** The window sets the icon, and the process
+  claims its own taskbar identity. Without that, Windows grouped it under
+  pythonw.exe and showed Python's icon.
+- **Why a pastie?** in the README, for the record.
 - **The Start menu is the machine's own dial.** The eleven programmes Haier's
   data marks `dashboard` for the HD90 — the same eleven the manual lists — in
   dial order, sent as the machine's own `hqd_*` programmes. Sports, Quick dry,
