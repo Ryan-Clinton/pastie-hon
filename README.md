@@ -63,10 +63,17 @@ home-automation server to do it.
 4. **Choose what should happen**: a light, a speaker, a notification, a webhook.
    Each one has a Test button.
 
+**Tested on** Windows 11 25H2 (build 26200), and built and self-checked on
+GitHub's Windows Server runners. The window needs Microsoft's WebView2 runtime,
+which Windows 11 includes. If it's missing, Pastie says so and offers the
+download rather than failing silently. Older Windows versions haven't been
+tried; if you run one, [say how it went](https://github.com/Ryan-Clinton/pastie-hon/discussions).
+
 ![Settings, drawn from what each messenger declares](https://raw.githubusercontent.com/Ryan-Clinton/pastie-hon/main/assets/screenshots/settings.png)
 
-**"Windows protected your PC"?** The download isn't code-signed, because a
-signing certificate costs money this project doesn't have. Windows SmartScreen
+**"Windows protected your PC"?** The download isn't code-signed yet: a
+certificate costs money this project doesn't have, so it's
+[applying for free open-source signing](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/CODE_SIGNING.md). Windows SmartScreen
 therefore warns about it until enough people have run it. Click *More info →
 Run anyway*, but only for a file from this repository's Releases page. Each
 release lists SHA256 checksums in `SHA256SUMS.txt` so you can check the file you
@@ -124,8 +131,10 @@ them. The same number means different things on different machines
 
 **No programming required.** If you own a Haier, Candy or Hoover appliance on
 hOn that isn't in the table (a washing machine, a dishwasher, an oven, an air
-conditioner), install Pastie, run a cycle, and
-[tell us what its numbers did](https://github.com/Ryan-Clinton/pastie-hon/issues/new?template=appliance.md).
+conditioner), install Pastie and run a cycle. Then use **Export appliance report**
+(in the window's Diagnostics, or `pastie report`, from 0.3.1) and
+[attach it to an appliance report](https://github.com/Ryan-Clinton/pastie-hon/issues/new?template=appliance.md).
+The file holds no ids, serial numbers, MAC addresses or location.
 Watching one machine through a few real cycles is the most useful contribution
 anyone can make, and it's how the table grows.
 

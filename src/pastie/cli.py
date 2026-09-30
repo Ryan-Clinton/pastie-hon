@@ -182,6 +182,25 @@ def cmd_demo(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    """Write the appliance report an owner attaches to a verification issue."""
+    try:
+        reports = _client().reports()
+    except ServiceUnavailableError as error:
+        print(error)
+        return 1
+    if not reports:
+        print("No appliance has been read yet. Is the watcher signed in to hOn?")
+        return 1
+    text = "\n\n".join(report["text"] for report in reports)
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+        print(f"Written to {args.output}. It holds no ids, serials, MACs or location.")
+    else:
+        print(text, end="")
+    return 0
+
+
 def cmd_where(_args: argparse.Namespace) -> int:
     """Print where everything lives, which is the first question when it misbehaves."""
     for label, path in (
@@ -191,6 +210,7 @@ def cmd_where(_args: argparse.Namespace) -> int:
         ("what it announced", paths.ledger_file()),
         ("speech cache", paths.speech_cache_dir()),
         ("log", paths.log_file()),
+        ("change journal", paths.journal_file()),
     ):
         print(f"{label:20} {path}")
     return 0
@@ -243,6 +263,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="which one to run: a name, 'list', or 'all' (the default)",
     )
     show.set_defaults(handler=cmd_demo)
+
+    report = commands.add_parser(
+        "report", help="an appliance report to attach to a verification issue (safe to share)"
+    )
+    report.add_argument("-o", "--output", help="write it to this file instead of the screen")
+    report.set_defaults(handler=cmd_report)
 
     where = commands.add_parser("where", help="print where Pastie keeps its files")
     where.set_defaults(handler=cmd_where)

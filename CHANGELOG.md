@@ -1,32 +1,83 @@
 # Changelog
 
 Notable changes, newest first. Dates are when the work landed. 0.3.0 is the
-first version meant to be published as a GitHub Release; its section below is
-also its release notes (`scripts/release_notes.py` copies it across).
+first version published as a GitHub Release. Each version's section opens with a
+short summary for the release page, before its first `###` heading;
+`scripts/release_notes.py` publishes that summary and links here for the rest.
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Added
+
+- **Export appliance report.** In the window (About → Diagnostics) or
+  `pastie report`, one file an owner can attach to an appliance-verification
+  issue: type, model, current raw values, and every value that moved, with the
+  time. It can hold only allow-listed values, and never an appliance id,
+  nickname, serial, MAC address, location or account. It's built from a new
+  structured change journal (`journal.jsonl` beside the log, capped), which
+  replaces asking people to pick lines out of the log.
+- **Version information in the Windows binaries.** `Pastie.exe`,
+  `pastie-cli.exe` and the installer now carry the product name and version
+  (Properties → Details), as code signing requires.
+- **docs/CODE_SIGNING.md**, the code signing policy, written to the SignPath
+  Foundation's requirements ahead of applying. It includes an exact account of
+  what Pastie talks to over the network.
+- The packaged self-check now covers tkinter, which draws the plain dialog
+  shown when WebView2 is missing.
+
+### Fixed
+
+- **Release notes are UTF-8.** 0.3.0's went up with every dash and arrow as a
+  replacement character, because the Windows runner's console encoding isn't
+  UTF-8. The published notes have been corrected.
+- **The release page gets a short summary**, not the whole changelog section.
+  Each version's section opens with that summary; the page links here for the
+  rest.
+- **MAC addresses are masked in the log** (see 0.3.0; it shipped there).
+
+### Changed
+
+- The README says exactly which Windows it has been tested on.
+- The roadmap puts appliance coverage ahead of features, and personality work
+  behind both.
+
 ## [0.3.0] — 2026-09-30 — first public preview
 
-Pastie watches a Haier hOn appliance and tells the rest of your home when it
-finishes: a Hue light, a spoken announcement on Google Home, a Windows
-notification, a webhook. It needs no Home Assistant and, as of this release,
-no Python either. Download the installer or the zip, sign in to hOn, and choose
-what should happen.
+Pastie's first public Windows preview. It watches a Haier hOn appliance and
+tells the rest of your home when it finishes, with no Home Assistant and no
+Python needed.
 
-- **Verified on:** Haier HD90-A2959R-UK tumble dryer: monitoring, finish and
-  fault alerts, the full water tank, filter reminders, and remote start of a
-  cycle armed at the machine.
-- **Detected, not interpreted:** every other hOn appliance type, shown with raw
-  values only. A washing machine profile is written but unverified until one
-  has been watched through real cycles.
-- **Limitations:** Windows only. Depends on an unofficial hOn client that Haier
-  can break at any time. The service runs at sign-in as you, not as a Windows
-  service. hOn accounts created with Google sign-in need a password set.
-- **Verify the download** against `SHA256SUMS.txt` attached to the release.
+**What's new**
+
+- A Windows installer: no Python, no administrator prompt
+- Windows desktop notifications, alongside Philips Hue, Google Home / Chromecast
+  and webhook alerts
+- A first-run screen that gets you signed in to hOn
+- A [compatibility page](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/COMPATIBILITY.md)
+  that says exactly what's verified
+- Verified on the Haier HD90-A2959R-UK tumble dryer: finished (including while
+  Pastie was off), faults, the full water tank, filter reminders, and remote
+  start once armed at the machine
+- A portable zip for anyone who'd rather not install, and `pip install pastie-hon`
+
+**Download:** `PastieSetup-0.3.0.exe`. Check it against `SHA256SUMS.txt` if
+you like.
+
+**Worth knowing**
+
+- Unofficial: it uses a community hOn client, and Haier can break it at any time
+- Windows only for the app (tested on Windows 11 25H2)
+- The installer isn't code-signed yet, so Windows SmartScreen will warn: *More
+  info → Run anyway*
+- Other hOn appliances are detected and shown as raw values, not interpreted,
+  until an owner has verified them
+
+**Help wanted:** own another Haier, Candy or Hoover appliance on hOn?
+[Help verify it](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/COMPATIBILITY.md#moving-an-appliance-up-the-list).
+No programming is needed.
 
 ### Added
 

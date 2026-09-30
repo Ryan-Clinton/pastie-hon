@@ -64,3 +64,8 @@ def speech_cache_dir() -> Path:
 
 def log_file() -> Path:
     return service_dir() / "pastie.log"
+
+
+def journal_file() -> Path:
+    """Raw values that moved, as data - what an appliance report is built from."""
+    return service_dir() / "journal.jsonl"

@@ -468,9 +468,17 @@ function renderDiagnostics(d) {
   el.innerHTML = `
     <button class="link" id="diag-back">← About</button>
     <h2 style="margin-top:10px">Diagnostics</h2>
+    <div class="card"><div class="label">HELP VERIFY THIS APPLIANCE</div>
+      <p class="muted">Saves what Pastie has seen this appliance's numbers do, ready to attach to an appliance report on GitHub. It holds no ids, serial numbers, MAC addresses, location or account.</p>
+      <button class="btn secondary" id="diag-export">Export appliance report</button>
+      <p class="muted" id="diag-export-result" aria-live="polite"></p></div>
     ${d.sections.map((s) => `<div class="card"><div class="label">${esc(s.title)}</div>
       ${s.rows.length ? s.rows.map(([k, v]) => `<div class="list-row" style="grid-template-columns:1fr auto"><span>${esc(k)}</span><span class="muted">${esc(v)}</span></div>`).join("") : '<p class="muted">Nothing.</p>'}</div>`).join("")}`;
   $("diag-back").addEventListener("click", () => show("about"));
+  $("diag-export").addEventListener("click", async () => {
+    const r = await api().export_report();
+    $("diag-export-result").textContent = r.ok ? `Saved to ${r.path}` : (r.cancelled ? "" : r.error);
+  });
 }
 
 // ================================================================ settings

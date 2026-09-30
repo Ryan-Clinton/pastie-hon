@@ -202,3 +202,18 @@ def test_the_command_line_parses_what_it_documents() -> None:
     for command in ("status", "login", "where", "service"):
         assert parser.parse_args([command]).command == command
     assert parser.parse_args(["test", "hue"]).messenger == "hue"
+
+
+async def test_an_appliance_report_comes_back_through_the_window_s_client(
+    service: service_main.Service, client: ServiceClient
+) -> None:
+    """Two readings, so something has moved; the report is what an owner attaches."""
+    await service.watcher.refresh()
+    await service.watcher.refresh()
+
+    reports = await asyncio.to_thread(client.reports)
+
+    assert len(reports) == 1
+    assert reports[0]["label"] == "tumble dryer"
+    assert "Pastie appliance report" in reports[0]["text"]
+    assert "machMode 1 -> 2" in reports[0]["text"]

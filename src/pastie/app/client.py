@@ -65,6 +65,10 @@ class ServiceClient:
     def status(self) -> dict[str, Any]:
         return self._ask("status")
 
+    def reports(self) -> list[dict[str, str]]:
+        """An appliance report per appliance: safe to attach to a public issue."""
+        return list(self._ask("appliance.report").get("reports", []))
+
     def settings(self) -> tuple[dict[str, Any], list[MessengerDescription], bool]:
         """Current settings, how to draw them, and whether an account is saved.
 

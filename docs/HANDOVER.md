@@ -333,6 +333,30 @@ so back that up first.
 
 Merge to `main` first. The README's links and images point at `main`.
 
+## Code signing
+
+The downloads are unsigned, and SmartScreen warns about them. That's now the
+biggest obstacle for someone who isn't technical. The plan is the SignPath
+Foundation's free signing for open-source projects: an OSI licence, no
+proprietary code, automated builds from source, manual approval of every
+release, and a published policy. `docs/CODE_SIGNING.md` is that policy. It
+carries no SignPath attribution yet, because the project hasn't been accepted.
+Applying is the owner's job (an account and an agreement); after acceptance,
+signing becomes a step in `release.yml` between building and publishing, with
+the `pypi`-style environment approval as the manual gate. The Microsoft Store
+(MSIX, signed by Microsoft) is the longer-term alternative.
+
+## Test machines
+
+- **The development PC**: Windows 11 Enterprise 25H2 (build 26200). No Windows
+  Sandbox.
+- **The Linux laptop**: `ssh laptop` (Ubuntu 26.04, Python 3.14). It has no
+  hardware virtualisation (no `/dev/kvm`), so it can't host a Windows VM for the
+  clean-PC installer test. It *is* a clean machine for the Python package:
+  2026-09-30, `pip install pastie-hon` from PyPI in a fresh venv there, and
+  `pastie --version` and `pastie demo all` ran. That's on Python 3.14, which CI
+  doesn't cover.
+
 ## Conventions
 
 Commit subjects are lowercase, typed, scoped where it helps:

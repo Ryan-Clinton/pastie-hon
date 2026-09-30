@@ -42,14 +42,26 @@ gets its raw numbers, labelled as raw, and nothing interpreted from them.
 
 1. Install Pastie with the appliance on your hOn account.
 2. Run one normal cycle.
-3. Open an
-   [appliance report](https://github.com/Ryan-Clinton/pastie-hon/issues/new?template=appliance.md)
-   and quote the log lines Pastie wrote as the values changed, with what you
-   were doing at the time. `pastie where` (or `pastie-cli where` in the
-   download's folder) shows where the log is.
+3. Export an appliance report: **About → Diagnostics → Export appliance
+   report** in the window, or `pastie report -o report.txt` (`pastie-cli` in
+   the download's folder). It lists every value that moved, with the time, and
+   holds no ids, serial numbers, MAC addresses, location or account.
+4. Open an
+   [appliance report issue](https://github.com/Ryan-Clinton/pastie-hon/issues/new?template=appliance.md),
+   attach the file, and say what you were doing at those times: "started it at
+   20:05", "opened the door at 21:40".
+
+(Export arrives in 0.3.1. On 0.3.0, quote the lines Pastie writes to its log
+as values change; `pastie where` shows where the log is. From 0.3.1, MAC
+addresses in the log are masked.)
 
 Just want to say what you own before testing anything? Post it in
 [Discussions](https://github.com/Ryan-Clinton/pastie-hon/discussions).
 
-Please quote individual fields. Never paste a raw dump: it contains the
-appliance's GPS coordinates, MAC address and serial number.
+The quickest wins are **other Haier tumble dryers**: HD80, HD90 and HD100
+variants are very likely close to the verified HD90, so one watched cycle each
+could verify several models
+([#2](https://github.com/Ryan-Clinton/pastie-hon/issues/2)).
+
+Never paste a raw dump from another tool: it contains the appliance's GPS
+coordinates, MAC address and serial number. Pastie's own report doesn't.

@@ -395,6 +395,31 @@ class Bridge:
         target.write_text(personality.to_toml(sheet), encoding="utf-8")
         return {"ok": True, "path": str(target)}
 
+    def export_report(self) -> dict[str, Any]:
+        """Save the appliance report an owner attaches to a verification issue.
+
+        Built by the watcher from allow-listed values only, so there is nothing
+        to take out of it before sharing.
+        """
+        import webview
+
+        try:
+            reports = self._client.reports()
+        except ServiceUnavailableError as error:
+            return {"ok": False, "error": str(error)}
+        if not reports:
+            return {"ok": False, "error": "No appliance has been read yet."}
+        if self._window is None:
+            return {"ok": False, "error": "There's no window to ask where to save it."}
+        chosen = self._window.create_file_dialog(
+            webview.FileDialog.SAVE, save_filename="pastie-appliance-report.txt"
+        )
+        if not chosen:
+            return {"ok": False, "cancelled": True}
+        target = Path(chosen if isinstance(chosen, str) else chosen[0])
+        target.write_text("\n\n".join(r["text"] for r in reports), encoding="utf-8")
+        return {"ok": True, "path": str(target)}
+
     def import_pack(self, key: str) -> dict[str, Any]:
         """Load a shared sheet into this card, keeping what is valid."""
         import webview

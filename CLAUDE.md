@@ -47,6 +47,9 @@ claiming anything works.
   connector, tracker and command tracker. Each scenario's claims are pinned in `tests/test_demo.py`,
   so changing behaviour means updating the demo narration too.
 
+A Linux laptop is reachable as `ssh laptop` (Ubuntu 26.04, Python 3.14, no virtualisation). Use it
+for clean-machine checks of the PyPI package; it can't host a Windows VM.
+
 ## Architecture
 
 ```

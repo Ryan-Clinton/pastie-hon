@@ -16,6 +16,7 @@ import signal
 from dataclasses import dataclass
 from typing import Any
 
+from pastie import __version__
 from pastie.connector.hon import HonConnector
 from pastie.core.commands import start_programme, stop_programme
 from pastie.core.events import EventKind
@@ -26,6 +27,7 @@ from pastie.messengers import MessengerRunner, SpeechCache, build_registry
 from pastie.service import paths
 from pastie.service.channel import PipeServer
 from pastie.service.config import SettingsStore
+from pastie.service.journal import Journal
 from pastie.service.protocol import Dispatcher, Reply
 from pastie.service.secrets import Credentials, SecretStore, SecretsUnavailableError
 from pastie.service.watcher import Watcher
@@ -49,6 +51,7 @@ def build(credentials: Credentials) -> Service:
         tracker=Tracker(MemoryStore(paths.memory_file()), Ledger(paths.ledger_file())),
         messengers=MessengerRunner(registry.messengers),
         settings=SettingsStore(paths.settings_file()),
+        journal=Journal(paths.journal_file()),
     )
     service = Service(
         watcher=watcher,
@@ -140,6 +143,9 @@ def register_handlers(service: Service, registry: Any) -> None:
         targets = await messenger.discover(settings.load().messenger(messenger.name))
         return Reply.worked(targets=[vars(target) for target in targets])
 
+    async def appliance_report(_arguments: dict[str, Any]) -> Reply:
+        return Reply.worked(reports=watcher.reports(__version__))
+
     async def command_start(arguments: dict[str, Any]) -> Reply:
         appliance = str(arguments.get("appliance", ""))
         programme = str(arguments.get("programme", ""))
@@ -171,6 +177,7 @@ def register_handlers(service: Service, registry: Any) -> None:
     service.dispatcher.on("account.set", account_set)
     service.dispatcher.on("messenger.test", messenger_test)
     service.dispatcher.on("messenger.discover", messenger_discover)
+    service.dispatcher.on("appliance.report", appliance_report)
     service.dispatcher.on("command.start", command_start)
     service.dispatcher.on("command.stop", command_stop)
 

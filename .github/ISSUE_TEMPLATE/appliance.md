@@ -13,10 +13,14 @@ programming. Haier, Candy and Hoover appliances on hOn are all welcome.
 from the download's folder (`pastie status` from source). It should detect and
 name the appliance and show raw values without interpreting them.
 
-**What changed during a cycle?** Pastie writes a line to its log every time a
-raw value changes (`pastie-cli where` shows where the log is). Run one normal
-cycle and quote the lines, with what you were doing at the time: "started it
-at 20:05", "opened the door at 21:40".
+**What changed during a cycle?** Run one normal cycle, then export an
+appliance report: About → Diagnostics → **Export appliance report** in the
+window, or `pastie report -o report.txt`. Attach the file here. It holds no
+ids, serial numbers, MAC addresses or location. Then say what you were doing at
+the times it lists: "started it at 20:05", "opened the door at 21:40".
+
+(On 0.3.0 there's no export yet: quote the lines Pastie writes to its log as
+values change, and `pastie where` shows where the log is.)
 
 **Which raw values have you actually confirmed?**
 

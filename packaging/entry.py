@@ -29,6 +29,8 @@ _NATIVE = (
     "webview",
     "win32crypt",
     "win32pipe",
+    # The plain dialog that says WebView2 is missing (UI-SPEC 5.4) is tkinter.
+    "tkinter.messagebox",
     "pastie.service.main",
     "pastie.app.main",
 )

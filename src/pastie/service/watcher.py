@@ -34,6 +34,7 @@ from pastie.core.state import Snapshot
 from pastie.core.tracker import Tracker
 from pastie.messengers.base import Delivery, MessengerRunner
 from pastie.service.config import SettingsStore
+from pastie.service.journal import Journal, appliance_report
 
 log = logging.getLogger(__name__)
 
@@ -230,6 +231,7 @@ class Watcher:
         health: HealthMonitor | None = None,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
         sleep: Callable[[float], Any] = asyncio.sleep,
+        journal: Journal | None = None,
     ) -> None:
         self._connector = connector
         self._tracker = tracker
@@ -238,6 +240,7 @@ class Watcher:
         self._health = health or HealthMonitor()
         self._now = now
         self._sleep = sleep
+        self._journal = journal or Journal(None)
 
         self._snapshots: dict[str, Snapshot] = {}
         self._commands = CommandTracker()
@@ -345,8 +348,7 @@ class Watcher:
             await self._deliver(event)
         return events
 
-    @staticmethod
-    def _log_changes(before: Snapshot | None, after: Snapshot) -> None:
+    def _log_changes(self, before: Snapshot | None, after: Snapshot) -> None:
         """Journal every raw value that moved since the last reading.
 
         This is how an unidentified number gets identified. The community's
@@ -355,7 +357,8 @@ class Watcher:
         for it (`PHASE_ERROR_FULL_TANK: Full tank`) but the number is not
         written down anywhere. Nobody is going to sit watching a dryer to find
         out, so the service writes down what changed and the answer turns up on
-        its own.
+        its own. The same changes go to the journal as data, which is what an
+        owner exports as an appliance report (`pastie report`).
 
         Counters that move every single reading are left out: they are not
         changes in any interesting sense, and including them would bury the one
@@ -363,11 +366,13 @@ class Watcher:
         """
         if before is None:
             return
-        changes = [
-            f"{key} {before.raw.get(key, '-')} -> {value}"
+        moved = {
+            key: (str(before.raw.get(key, "-")), str(value))
             for key, value in sorted(after.raw.items())
             if key not in _ALWAYS_MOVING and before.raw.get(key) != value
-        ]
+        }
+        self._journal.record(after.observed_at, after.appliance_id, moved)
+        changes = [f"{key} {old} -> {new}" for key, (old, new) in moved.items()]
         if changes:
             log.info("%s: %s", after.name, ", ".join(changes))
 
@@ -434,6 +439,25 @@ class Watcher:
             command=active,
             command_detail=current.to_json() if (current := self._commands.current()) else None,
         )
+
+    def reports(self, version: str) -> list[dict[str, str]]:
+        """An appliance report per appliance seen, for owners verifying one."""
+        out = []
+        for appliance_id, snapshot in self._snapshots.items():
+            profile = self._connector.profile(appliance_id)
+            text = appliance_report(
+                label=profile.label,
+                appliance_type=profile.appliance_type,
+                model=snapshot.model,
+                trust=snapshot.trust.value,
+                state=snapshot.state.value,
+                raw=snapshot.raw,
+                changes=self._journal.changes(appliance_id),
+                version=version,
+                now=self._now(),
+            )
+            out.append({"appliance": appliance_id, "label": profile.label, "text": text})
+        return out
 
     @property
     def health(self) -> Health:
