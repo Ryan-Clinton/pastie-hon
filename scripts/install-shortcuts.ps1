@@ -37,13 +37,16 @@ $icon = Join-Path $repo 'assets\pastie.ico'
 
 $startMenu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Pastie.lnk'
 $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Pastie.lnk'
-$startup = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup\Pastie service.lnk'
+$startup = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup\Pastie background watcher.lnk'
 
 # The prototype's build and its shortcuts. Left on disk, taken off the menus:
 # deleting somebody's working fallback is not this script's decision.
 $old = @(
     (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Pastie Tumble Dryer.lnk'),
-    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Pastie Tumble Dryer.lnk')
+    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Pastie Tumble Dryer.lnk'),
+    # This script's own earlier name for the Startup shortcut. "Service" read as
+    # a Windows service, which this is not.
+    (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup\Pastie service.lnk')
 )
 
 if ($Remove) {
@@ -74,7 +77,7 @@ function Set-Shortcut($path, $target, $arguments, $description) {
 
 Set-Shortcut $startMenu $app '' 'Pastie - what your Haier appliance is doing'
 Set-Shortcut $desktop $app '' 'Pastie - what your Haier appliance is doing'
-Set-Shortcut $startup $pythonw '-m pastie.cli service' 'Pastie background service'
+Set-Shortcut $startup $pythonw '-m pastie.cli service' 'Pastie background watcher'
 
 foreach ($stale in $old) {
     if (Test-Path $stale) {
@@ -84,5 +87,5 @@ foreach ($stale in $old) {
 }
 
 ""
-"The window is on the Start menu and the Desktop. The service starts at login."
+"The window is on the Start menu and the Desktop. The background watcher starts when you sign in."
 "Nothing is running yet - open Pastie, or run:  .venv\Scripts\pastie service"

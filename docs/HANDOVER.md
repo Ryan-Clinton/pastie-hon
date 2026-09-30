@@ -42,7 +42,7 @@ python -m venv .venv
 
 pytest -q --cov=pastie --cov-report=term-missing
 ruff check .
-ruff format --check src tests scripts
+ruff format --check src tests scripts packaging
 mypy
 python scripts/third_party_notices.py --check
 ```
@@ -102,11 +102,13 @@ appliance to confirm it, not somebody who reasoned about it.
 pipe rather than opening its own. Two connections can disagree about what the
 machine is doing. Nothing listens on a network address a browser could reach.
 
-**Credentials are DPAPI-encrypted under the service's own Windows identity, and
+**Credentials are DPAPI-encrypted under the Windows account running the
+service - today, the logged-in user, because the service is a login task - and
 there is deliberately no way to read one back out.** The app hands a new
 password to the service and never stores or reads one. Do not add a "show
 password" affordance, and do not move credential storage under the user profile:
-the service does not run as the user and could not read it.
+it has to stay where a service running under its own identity (SPEC 14,
+experiment 4) could still reach it.
 
 ## Dependencies are pinned exactly, on purpose
 
@@ -177,10 +179,25 @@ Success` appears. The prototype's notifier ran as SYSTEM but only ever *polled*,
 and MQTT is what drags in the Amazon networking components that are fussy about
 how they are started. Do not let the login task make this look finished.
 
-**Packaging.** There is still no `.exe` for the current build. `SPEC.md` section
-11 asks for the packaged artefact to be tested rather than just the code, and it
-is a real job now: two processes, and PyInstaller has to be talked through the
-Amazon networking components.
+**~~Packaging.~~** Done in 0.3.0, not yet released. `packaging/pastie.spec`
+builds one folder with two executables that share it: `Pastie.exe` (the window,
+and `Pastie.exe service` for the background half, which is how the window starts
+it) and `pastie-cli.exe` (the command line, with a console). `packaging/pastie.iss`
+wraps that folder in a per-user installer. `.github/workflows/release.yml`
+builds both on a `v*` tag, runs `pastie-cli --self-check` (it imports every
+native part: awscrt, awsiot, pyhon, pychromecast, zeroconf, gTTS, pywebview,
+pywin32) and a full demo run against the *built* folder, then publishes zip,
+installer and SHA256SUMS. The self-check caught one thing on its first run:
+Pillow is a declared dependency that no code imports, so the build rightly
+leaves it out.
+
+Not yet proven: the packaged service connecting to hOn and receiving MQTT
+pushes. Every native part imports, but nobody has run the frozen service
+against a real account yet, because the development machine's own service holds
+the single-instance lock. Do that once, by hand, before tagging: stop the dev
+service, run `Pastie.exe`, and watch for `Lifecycle Connection Success` in the
+log. The installer is also unsigned, so SmartScreen will warn; the README says
+so.
 
 **~~No pushed MQTT message has ever been observed.~~** Observed, 2026-09-06,
 during a real cycle. They arrive as parameter deltas rather than whole readings:
@@ -219,9 +236,91 @@ Two lessons worth keeping. **The journal built to catch this missed it.**
 journal ever saw it, and the service recorded only "paused". It was caught
 because the client library happens to log raw pushes. Anything left off the
 allow-list is also something the journal cannot see - add fields there with that
-in mind. And **it is worth sending upstream**: `pyhOn` has no mapping for
-`message` on tumble dryers, and the phases it lists as "unknown" are still
-unknown.
+in mind. **It has been sent upstream**, on 2026-09-24, along with the other
+findings. As of 2026-09-30 nobody has replied; the maintainer's last commit was
+2026-09-20.
+
+- hon-revived: [#72](https://github.com/mmalolepszy/hon-revived/issues/72)
+  (mode 7 is the finish) and
+  [#73](https://github.com/mmalolepszy/hon-revived/issues/73) (tank =
+  `message` 4)
+- pyhon-revived:
+  [#14](https://github.com/mmalolepszy/pyhon-revived/issues/14) (anonymous
+  export leaks account ids),
+  [#15](https://github.com/mmalolepszy/pyhon-revived/issues/15) (programmes the
+  model lacks are accepted and ignored) and
+  [#16](https://github.com/mmalolepszy/pyhon-revived/issues/16) (`send()`
+  returning True means accepted, not done)
+- hon-test-data: [PR #9](https://github.com/mmalolepszy/hon-test-data/pull/9),
+  this dryer's scrubbed data. That repository has been quiet since 2025-11. Its
+  unanswered [#6](https://github.com/mmalolepszy/hon-test-data/issues/6) is an
+  HD90-A2959R-FR owner, a natural person to ask about Pastie's
+  [#2](https://github.com/Ryan-Clinton/pastie-hon/issues/2).
+
+**A washing machine is on its way (HW100-BP14357, X5).** It has an
+**unverified** profile, `WASHING_MACHINE` in `connector/profiles.py`, and its
+fields are on the allow-list. So, as soon as it is added to the same hOn account,
+it will show up named, stamped UNVERIFIED, with raw values and a journal of
+every change. It will announce nothing yet. That is deliberate. Before any
+mapping is marked verified, run a few watched cycles and settle, from the
+journal:
+
+- whether `machMode` 7 is the finish signal, as it is on the dryer
+- which phase numbers this model really uses
+- whether anything plays the part of the dryer's `dryTimeMM` (a fixed
+  programme length), without which remaining time has no settled-ness test
+- which counter moves at the end of a cycle: `programsCounter` on the
+  statistics endpoint or `totalWashCycle` in the live parameters (the reader
+  currently takes the former)
+- what `message` and `errors` carry
+- whether remote start needs arming at the panel. hOn's FAQ says remote control
+  has to be switched on at the machine and the door shut.
+
+The profile's comment has the detail. Record each fact where the dryer's are
+recorded, with the date observed.
+
+On **washer and dryer "sharing"**: researched 2026-09-30, and there is nothing
+to build on yet.
+- The only named feature is Hoover's "Sync with your washer" (H-WASH 500 with
+  H-DRY 500): the app picks the dryer programme from the wash programme, spin and
+  load.
+- Haier's pages for neither the X5 nor the HD90 mention an equivalent. The hOn
+  app's own strings (`translate-en.txt`) have none, and no pyhOn endpoint or
+  command parameter links two appliances.
+- If it exists for this pair it is app-side. Check the hOn app once both
+  machines are on the account.
+- Pastie could do its own version later: when the washer finishes, suggest or
+  arm-check the dryer from the wash programme. But that needs a *verified*
+  washer finish first, so it waits.
+
+## Releasing
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`. The tag must equal
+`pastie.__version__`, and the notes are that version's CHANGELOG section. It
+builds the Windows folder, self-checks it and runs the demo against the build,
+then publishes the zip, the installer and SHA256SUMS as a GitHub Release. If
+that passes, it publishes the sdist and wheel to PyPI as `pastie-hon`.
+
+**One-time PyPI set-up, before the first tag.** PyPI → Your account →
+Publishing → *Add a new pending publisher*: PyPI project name `pastie-hon`,
+owner `Ryan-Clinton`, repository `pastie-hon`, workflow `release.yml`,
+environment `pypi`. Then, in the GitHub repository, Settings → Environments →
+New environment `pypi` (adding yourself as a required reviewer makes every
+upload wait for a click). No token is stored anywhere. The name `pastie-hon` was
+free on PyPI on 2026-09-30.
+
+**Before tagging 0.3.0**, two checks that nothing automated covers:
+
+- The packaged watcher against a real account. Stop the development watcher,
+  run `build\pkg\dist\Pastie\Pastie.exe`, and look for
+  `Lifecycle Connection Success` in the log (`pastie where`). It uses the same
+  settings and the same DPAPI-encrypted password, because it runs as the same
+  Windows user.
+- The installer on a PC with no Python and no development tools. Windows
+  Sandbox isn't available on the development machine, so this needs another
+  PC or a VM.
+
+Merge to `main` first. The README's links and images point at `main`.
 
 ## Conventions
 

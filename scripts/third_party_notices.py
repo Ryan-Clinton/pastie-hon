@@ -29,6 +29,10 @@ from packaging.requirements import Requirement
 
 REPO = Path(__file__).resolve().parents[1]
 OUTPUT = REPO / "THIRD_PARTY_NOTICES.txt"
+#: Pastie's own distribution name - excluded from its own notices. Not `pastie`:
+#: that name belongs to somebody else on PyPI. Looked up under the old name, the
+#: dependency walk found nothing and the check would have compared empty lists.
+DISTRIBUTION = "pastie-hon"
 
 HEADER = """\
 THIRD PARTY NOTICES
@@ -58,7 +62,7 @@ def shipped_packages() -> set[str]:
     direction that matters.
     """
     wanted: set[str] = set()
-    queue = ["pastie"]
+    queue = [DISTRIBUTION]
     while queue:
         name = _canonical(queue.pop())
         if name in wanted:
@@ -74,7 +78,7 @@ def shipped_packages() -> set[str]:
             if requirement.marker is not None and not requirement.marker.evaluate({"extra": ""}):
                 continue
             queue.append(requirement.name)
-    return wanted - {"pastie"}
+    return wanted - {DISTRIBUTION}
 
 
 def installed_packages() -> list[dict[str, str]]:

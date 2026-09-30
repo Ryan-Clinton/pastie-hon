@@ -83,6 +83,25 @@ class CommandProgress:
     #: Recorded so `lines()` can report the deadline the attempt was held to.
     deadline_seconds: float | None = None
 
+    def to_json(self) -> dict[str, object]:
+        """The same attempt as facts, for a window that phrases it itself."""
+
+        def when(at: datetime | None) -> str | None:
+            return at.isoformat() if at else None
+
+        return {
+            "id": self.id,
+            "name": self.name,
+            "appliance_id": self.appliance_id,
+            "outcome": self.outcome.value,
+            "requested_at": when(self.requested_at),
+            "accepted_at": when(self.accepted_at),
+            "confirmed_at": when(self.confirmed_at),
+            "rejected_at": when(self.rejected_at),
+            "reason": self.reason,
+            "deadline_seconds": self.deadline_seconds,
+        }
+
     def lines(self) -> list[str]:
         """The progress display from the specification, verbatim in shape."""
         out = [f"{self.name} requested".ljust(24) + f"{self.requested_at:%H:%M:%S}"]
@@ -132,6 +151,12 @@ class CommandTracker:
         for progress, _ in self._active.values():
             return progress.lines()
         return self._history[-1].lines() if self._history else []
+
+    def current(self) -> CommandProgress | None:
+        """The attempt `active_lines` describes, as data rather than text."""
+        for progress, _ in self._active.values():
+            return progress
+        return self._history[-1] if self._history else None
 
     def request(
         self, spec: CommandSpec, appliance_id: str, at: datetime, snapshot: Snapshot | None = None

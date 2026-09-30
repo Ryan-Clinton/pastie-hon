@@ -1,20 +1,23 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]      # SPDX `license` below
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pastie"
-version = "0.2.0"
-description = "Appliance companion for Haier hOn appliances - state, alerts and control"
+# The distribution is `pastie-hon`, like the repository: `pastie` on PyPI is an
+# unrelated project from 2021. The package, the import and the commands stay
+# `pastie`.
+name = "pastie-hon"
+version = "0.3.0"
+description = "Standalone Windows companion for Haier hOn appliances - Hue, Google Home and desktop alerts, status and remote start. No Home Assistant required."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"          # PyChromecast needs 3.11+
-keywords = ["haier", "hon", "appliance", "tumble-dryer", "hue", "chromecast"]
+keywords = ["haier", "hon", "haier-hon", "appliance", "tumble-dryer", "hue", "chromecast", "google-home"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Win32 (MS Windows)",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -38,6 +41,10 @@ dependencies = [
     "gTTS==2.5.4",
     "pillow==11.3.0",
     "pywin32==312 ; sys_platform == 'win32'",
+    # The window: a web page in a native window, drawn by WebView2 (UI-SPEC 5).
+    "pywebview==6.2.1 ; sys_platform == 'win32'",
+    # Personality packs are TOML the owner can read and share (UI-SPEC 7.9).
+    "tomli-w==1.2.0",
 ]
 
 [project.optional-dependencies]
@@ -66,7 +73,7 @@ Changelog = "https://github.com/Ryan-Clinton/pastie-hon/blob/main/CHANGELOG.md"
 where = ["src"]
 
 [tool.setuptools.package-data]
-pastie = ["py.typed"]
+pastie = ["py.typed", "app/pastie.ico", "app/web/*.html", "app/web/*.css", "app/web/*.js", "app/web/brand/*", "app/web/poses/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -120,6 +127,10 @@ ignore = [
 # Unused arguments are how a test stands in for an interface; and a test of a
 # window is a test of what its private methods put on the screen.
 "tests/*" = ["ARG001", "ARG002", "SLF001"]
+# Shipped copy: one sentence per line, so a line can be read and edited whole.
+"src/pastie/app/voice.py" = ["E501"]
+# An embedded PowerShell script: WinRT type literals cannot be wrapped.
+"src/pastie/messengers/desktop.py" = ["E501"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "parents"
@@ -147,5 +158,8 @@ module = [
     "winerror",
     "pywintypes",
     "ntsecuritycon",
+    # The window's host, installed on Windows only.
+    "webview",
+    "webview.*",
 ]
 ignore_missing_imports = true

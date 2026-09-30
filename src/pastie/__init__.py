@@ -16,6 +16,6 @@ client, which is what makes the awkward parts - restarts, duplicate updates,
 gaps while Pastie was switched off - testable without an appliance.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = ["__version__"]

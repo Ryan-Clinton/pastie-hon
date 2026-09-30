@@ -4,8 +4,10 @@ Two locations, because there are two identities involved and confusing them is
 the single most common way this sort of thing breaks:
 
 * **The service's data** - what it has announced, what it last knew, the
-  settings it acts on - lives in ProgramData. The service does not run as you,
-  and anything written under your profile would not be readable by it.
+  settings it acts on - lives in ProgramData. Today the service runs as you, at
+  login; ProgramData is where it would have to be if the service ever runs
+  under an identity of its own (SPEC 14, experiment 4), and choosing it now
+  means that move would not strand anybody's settings.
 * **The app's preferences** - window size, which tab was open - live under your
   profile, because they are yours and nobody else's business.
 

@@ -11,7 +11,7 @@ their full text and any NOTICE file to be shipped alongside the binary. Where a
 package below is Apache-2.0, its LICENSE and NOTICE files are included in the
 distribution.
 
-Generated: 2026-09-11
+Generated: 2026-09-25
 
 
 aiohappyeyeballs 2.7.1
@@ -41,6 +41,11 @@ awsiotsdk 1.31.0
     Author  : AWS SDK Common Runtime Team
     Home    : https://github.com/aws/aws-iot-device-sdk-python-v2
 
+bottle 0.13.4
+    Licence : MIT License
+    Author  : Marcel Hellkamp
+    Home    : http://bottlepy.org/
+
 casttube 0.2.1
     Licence : MIT
     Author  : Uri Katz
@@ -51,6 +56,11 @@ certifi 2026.7.22
     Author  : Kenneth Reitz
     Home    : https://github.com/certifi/python-certifi
 
+cffi 2.1.1
+    Licence : UNKNOWN
+    Author  : Armin Rigo, Maciej Fijalkowski
+    Home    : https://cffi.readthedocs.io/en/latest/whatsnew.html
+
 charset-normalizer 3.5.1
     Licence : MIT
     Author  : "Ahmed R. TAHRI" <tahri.ahmed@proton.me>
@@ -59,6 +69,10 @@ charset-normalizer 3.5.1
 click 8.1.8
     Licence : BSD License
     Home    : https://github.com/pallets/click/
+
+clr_loader 0.3.1
+    Licence : UNKNOWN
+    Author  : Benedikt Reinartz <filmor@gmail.com>
 
 colorama 0.4.6
     Licence : BSD License
@@ -104,14 +118,34 @@ protobuf 7.36.1
     Author  : protobuf@googlegroups.com
     Home    : https://developers.google.com/protocol-buffers/
 
+proxy_tools 0.1.0
+    Licence : MIT License
+    Author  : Jonathan Tushman
+    Home    : http://github.com/jtushman/proxy_tools
+
 PyChromecast 14.0.7
     Licence : MIT License
     Author  : Paulus Schoutsen <paulus@paulusschoutsen.nl>
     Home    : https://github.com/home-assistant-libs/pychromecast
 
+pycparser 3.0
+    Licence : UNKNOWN
+    Author  : Eli Bendersky <eliben@gmail.com>
+    Home    : https://github.com/eliben/pycparser
+
 pyhon-revived 0.19.2
     Licence : MIT
     Author  : Andre Basche, Michał Małolepszy
+
+pythonnet 3.1.0
+    Licence : UNKNOWN
+    Author  : "The Contributors of the Python.NET Project" <pythonnet@python.org>
+    Home    : https://pythonnet.github.io/
+
+pywebview 6.2.1
+    Licence : BSD License
+    Author  : Roman Sirokov <roman@flowrl.com>
+    Home    : https://pywebview.flowrl.com/
 
 pywin32 312
     Licence : Python Software Foundation License
@@ -122,6 +156,11 @@ requests 2.34.2
     Licence : Apache Software License
     Author  : Kenneth Reitz <me@kennethreitz.org>
     Home    : https://github.com/psf/requests
+
+tomli_w 1.2.0
+    Licence : MIT License
+    Author  : Taneli Hukkinen <hukkin@users.noreply.github.com>
+    Home    : https://github.com/hukkin/tomli-w
 
 typing_extensions 4.16.0
     Licence : UNKNOWN

@@ -6,7 +6,7 @@ running it has those files, and asking them to type everything in again - and to
 find their Hue key a second time - is a poor welcome.
 
 So this reads them once and writes them where they belong: the password into the
-encrypted store under the service's own identity, everything else into the
+encrypted store under the Windows account running the service, everything else into the
 settings document. The prototype's files are left alone; deleting somebody's
 credentials file on their behalf is not this program's decision, and the advice
 to remove it belongs in what we print, not in what we do.

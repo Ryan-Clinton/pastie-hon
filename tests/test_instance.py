@@ -73,6 +73,16 @@ def test_the_service_is_started_with_this_interpreter() -> None:
     assert Path(command[0]).exists()
 
 
+def test_the_packaged_build_starts_the_service_from_its_own_exe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """There is no Python to hand `-m` to inside Pastie.exe."""
+    monkeypatch.setattr("sys.frozen", True, raising=False)
+    monkeypatch.setattr("sys.executable", r"C:\Pastie\Pastie.exe")
+
+    assert service_command() == [r"C:\Pastie\Pastie.exe", "service"]
+
+
 def test_a_console_window_is_not_flashed_up_where_it_can_be_avoided() -> None:
     executable = Path(service_command()[0])
     if (executable.parent / "pythonw.exe").exists():

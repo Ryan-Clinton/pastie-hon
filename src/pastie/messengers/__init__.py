@@ -6,8 +6,8 @@ send a pull request. You do not write any interface code - a messenger describes
 its settings and the settings screen draws itself.
 
 Genuinely useful ones nobody has written yet: LIFX, WiZ and Nanoleaf lights (all
-talk directly over your network, no accounts needed), phone notifications
-through ntfy or Telegram, and a plain Windows desktop notification.
+talk directly over your network, no accounts needed), and phone notifications
+through ntfy or Telegram.
 
 The rules every messenger follows are in `base`, and they are enforced there
 rather than left to each author: isolation and timeouts, one alert at a time per
@@ -27,6 +27,7 @@ from pastie.messengers.base import (
     sample_event,
 )
 from pastie.messengers.cast import CastMessenger, SpeechCache
+from pastie.messengers.desktop import DesktopMessenger
 from pastie.messengers.fileserve import ServedFile
 from pastie.messengers.hue import HueMessenger
 from pastie.messengers.webhook import WebhookMessenger
@@ -34,6 +35,7 @@ from pastie.messengers.webhook import WebhookMessenger
 __all__ = [
     "CastMessenger",
     "Delivery",
+    "DesktopMessenger",
     "HueMessenger",
     "Kind",
     "Messenger",
@@ -62,4 +64,5 @@ def build_registry(speech_cache: SpeechCache) -> Registry:
     registry.add(HueMessenger())
     registry.add(CastMessenger(speech_cache))
     registry.add(WebhookMessenger())
+    registry.add(DesktopMessenger())
     return registry

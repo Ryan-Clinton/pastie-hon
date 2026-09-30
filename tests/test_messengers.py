@@ -31,6 +31,7 @@ from pastie.messengers.base import (
     sample_event,
 )
 from pastie.messengers.cast import CastMessenger, SpeechCache, SpeechError
+from pastie.messengers.desktop import DesktopMessenger
 from pastie.messengers.fileserve import ServedFile
 from pastie.messengers.flash import MAX_SECONDS, TargetLocks, plan
 from pastie.messengers.hue import COLOURS, Bridge, HueError, HueMessenger, supports_colour
@@ -463,7 +464,7 @@ def test_secrets_are_redacted_before_they_reach_a_log() -> None:
 
 
 def test_every_messenger_describes_its_settings_for_the_screen_to_draw() -> None:
-    for messenger in (HueMessenger(), WebhookMessenger()):
+    for messenger in (HueMessenger(), WebhookMessenger(), DesktopMessenger()):
         settings = list(messenger.settings())
         assert settings, f"{messenger.name} describes nothing"
         assert all(isinstance(setting.kind, Kind) for setting in settings)
@@ -616,10 +617,10 @@ def test_the_registry_holds_every_messenger_this_build_knows_about(tmp_path: Pat
 
     registry = build_registry(SpeechCache(tmp_path))
 
-    assert {messenger.name for messenger in registry} == {"hue", "cast", "webhook"}
+    assert {messenger.name for messenger in registry} == {"hue", "cast", "webhook", "desktop"}
     assert registry.get("hue") is not None
     assert registry.get("nothing-like-this") is None
-    assert len(registry) == 3
+    assert len(registry) == 4
 
 
 async def test_the_alert_records_which_light_by_name(caplog: pytest.LogCaptureFixture) -> None:
@@ -659,3 +660,34 @@ async def test_a_delivery_that_worked_is_logged_too(caplog: pytest.LogCaptureFix
         await runner.deliver(sample_event(), {"fine": {"enabled": True}})
 
     assert "alert cycle_finished -> fine: did the thing" in caplog.text
+
+
+# ---------------------------------------------------------------- desktop
+
+
+async def test_a_windows_notification_carries_the_events_own_sentence() -> None:
+    shown: list[tuple[str, str]] = []
+    messenger = DesktopMessenger(show=lambda title, body: shown.append((title, body)))
+
+    result = await messenger.react(sample_event("The tumble dryer has finished."), {})
+
+    assert result.ok
+    assert shown == [("Pastie - Finished", "The tumble dryer has finished.")]
+
+
+async def test_a_windows_notification_that_fails_says_why() -> None:
+    def refuse(_title: str, _body: str) -> None:
+        raise OSError("notifications are switched off")
+
+    result = await DesktopMessenger(show=refuse).react(sample_event(), {})
+
+    assert not result.ok
+    assert "notifications are switched off" in result.detail
+
+
+def test_the_notification_text_never_becomes_part_of_the_script() -> None:
+    """The event's words travel as environment variables, escaped in PowerShell."""
+    from pastie.messengers import desktop
+
+    assert "PASTIE_TOAST_BODY" in desktop._SCRIPT
+    assert "SecurityElement]::Escape($env:PASTIE_TOAST_BODY)" in desktop._SCRIPT

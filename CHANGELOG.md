@@ -1,15 +1,64 @@
 # Changelog
 
-Notable changes, newest first. Dates are when the work landed, not when anybody
-released anything — nothing has been released yet.
+Notable changes, newest first. Dates are when the work landed. 0.3.0 is the
+first version meant to be published as a GitHub Release; its section below is
+also its release notes (`scripts/release_notes.py` copies it across).
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## [0.3.0] — first public preview (not yet tagged)
+
+Pastie watches a Haier hOn appliance and tells the rest of your home when it
+finishes: a Hue light, a spoken announcement on Google Home, a Windows
+notification, a webhook. It needs no Home Assistant and, as of this release,
+no Python either. Download the installer or the zip, sign in to hOn, and choose
+what should happen.
+
+- **Verified on:** Haier HD90-A2959R-UK tumble dryer: monitoring, finish and
+  fault alerts, the full water tank, filter reminders, and remote start of a
+  cycle armed at the machine.
+- **Detected, not interpreted:** every other hOn appliance type, shown with raw
+  values only. A washing machine profile is written but unverified until one
+  has been watched through real cycles.
+- **Limitations:** Windows only. Depends on an unofficial hOn client that Haier
+  can break at any time. The service runs at sign-in as you, not as a Windows
+  service. hOn accounts created with Google sign-in need a password set.
+- **Verify the download** against `SHA256SUMS.txt` attached to the release.
+
 ### Added
 
+- **A Windows download.** `PastieSetup-<version>.exe`, a per-user installer
+  with no administrator prompt that puts Pastie on the Start menu and, if you
+  tick it, starts the watcher at sign-in. Also `Pastie-<version>-Windows-x64.zip`
+  for anyone who would rather not install. Built by
+  `.github/workflows/release.yml` from `packaging/`. Every build is checked as
+  built with `pastie-cli --self-check`, which imports every native part the
+  service needs, and a full demo run.
+- **`pip install pastie-hon`**, published to PyPI by the same release workflow
+  through trusted publishing (no stored token), and only after the Windows build
+  has passed. The README's images and links are absolute, so they display on
+  PyPI too.
+- **Current screenshots**, taken by `scripts/screenshots.py`. It opens the real
+  window against a recorded dryer reading instead of a live account, so the
+  pictures stay in step with the window and never show a bridge address or
+  account. The old ones predated the redesign.
+- **docs/COMPATIBILITY.md**: every appliance at one of four levels (Detected,
+  Testing, Verified, Community verified), with a no-programming route to move one
+  up.
+- **Windows notifications** (`messengers/desktop.py`), for anybody with no
+  bridge, speaker or webhook receiver. No new dependency: Windows' own toast
+  notifications, through Windows PowerShell. The event's text is passed as
+  data, never as script.
+- **A washing machine profile, written ahead of one arriving** (a Haier
+  HW100-BP14357, X5). **Unverified**: it gives a washer its name and labels its
+  phases "(unconfirmed)" in the diagnostics, and it interprets nothing. There is
+  no state, no fault alerts and no commands until the mappings have been checked
+  on a real machine. The washer's own fields are on the privacy allow-list now,
+  so the change journal records them from the very first cycle. Handover lists
+  what those first cycles have to settle.
 - **`pastie demo`** — replays recorded readings through the real connector, the
   real brain and the real command tracker, with no appliance, no hOn account and
   no network. Six scenarios, each one a case that is easy to get wrong: a
@@ -44,6 +93,69 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stopped is not old news - and again if the tank fills twice in one load.
   Found by watching the real machine, not by reading Haier's strings: those
   suggested a phase number, and it is not one.
+- **A presenter decides everything the window shows** (`app/presenter.py`,
+  docs/UI-SPEC.md phase 1). Facts first and plain at every personality level
+  (Plain, Dry, Departmental); at most one aside, and none for faults, the tank
+  or anything needing action; the Confirmed pose only on machine-confirmed
+  state. Every shipped line is in `app/voice.py`, checked for pool sizes,
+  length, duplicates and borrowed catchphrases. The window remembers which
+  line it picked for which event, and the evidence for each cycle's case file,
+  in its own file under the user's profile; never the words it showed.
+- **The window is a web page in a native window** (`app/webview.py`, `app/web/`,
+  docs/UI-SPEC.md phase 2). pywebview and Windows' own WebView2 replace the
+  Tkinter window, which is deleted. The page draws the presenter's ScreenState
+  and nothing else: the caseload, the hero with the progress ring and a pose,
+  the facts, the aside, the paper trail, "Why does Pastie say this?", where
+  matters stand, History and case files, the Guide, Settings (drawn from each
+  messenger's declared settings, as before), About and Diagnostics. It loads
+  nothing from the network: a Content-Security-Policy with `connect-src 'none'`,
+  and no web address anywhere in the bundle.
+- **A first run, and an accessibility pass** (docs/UI-SPEC.md phase 6). With
+  no saved account the window opens on four steps: connect the account (plain,
+  under the crest), find appliances (from the real status, never a timer),
+  choose how Pastie tells you things, and send a test, which earns the
+  thumbs-up only on a real delivery. State changes are announced once, from a
+  region that is never redrawn; the "why" panel returns focus to where it was
+  opened; every text colour in both themes is tested against WCAG AA, which
+  darkened the light theme's gold and gave its primary buttons white text.
+- **Every personality is configurable** (docs/UI-SPEC.md phase 5, 7.9).
+  Settings -> Personalities has a card per cast member: each appliance type,
+  the Household and Pastie. Name, temperament (Diligent, Indecisive, Dramatic,
+  Aloof, Weary, Cheerful, Custom), Pastie's stance (Professional, Deferential,
+  Firm, Weary, Fond), a per-appliance personality level, the three meters, and
+  every line pool: switch shipped lines off, add your own (checked as you
+  type), or use only yours. A live preview renders any state at any level
+  before anything is saved. Sheets are TOML under your profile, with export,
+  import (valid parts applied, the rest named) and reset. No sheet can change a
+  fact, a stamp, a pose's link to real state, or put a joke on anything needing
+  action, and an unverified appliance's sheet waits until it is verified.
+- **The voice reaches everywhere it was specified** (docs/UI-SPEC.md phase 4):
+  reactive asides for a rising estimate, a confirmed start, the first finish of
+  the day, a maintenance count, a recovered gap, an unknown state, a silent
+  dryer and a quiet reconnect; the Departmental ordeal; case files, the Guide,
+  Diagnostics and "why". Tests now also prove every screen still makes sense
+  with every aside removed, that a silent dryer is never called offline, and
+  how the hero is chosen when there is more than one appliance.
+- **The identity comes from the crest** (docs/UI-SPEC.md phase 3, 10.4). A new
+  app icon (the shield, a simplified pastie face, and circuit stubs where there
+  is room) is drawn natively at 16, 24, 32, 48, 64, 128 and 256 px so it stays
+  legible small, and replaces the burger photo on the window, the taskbar and
+  the shortcuts. The full crest heads About, the empty screen and the
+  service-down screen. Poses change with a 200 ms fade; only the ring moves;
+  reduce motion stills both. The README screenshots are the new window.
+- **pywebview's local web server is kept firmly off.** It serves a page given as
+  a path from `http://127.0.0.1` even when told not to, and even for absolute
+  paths; the page is therefore always an explicit `file:///` URI. A test opens
+  the real window and checks it owns no listening socket. The bridge also
+  exposes methods only, because pywebview hands every public attribute to the
+  page.
+- **The status reply carries the facts behind its text**: `remaining_minutes`,
+  `remaining_settled`, and `command_detail`, the command's progress as data.
+  The old text fields stay, so nothing that read them breaks.
+- **The taskbar shows the pastie.** The window sets the icon, and the process
+  claims its own taskbar identity. Without that, Windows grouped it under
+  pythonw.exe and showed Python's icon.
+- **Why a pastie?** in the README, for the record.
 - **The Start menu is the machine's own dial.** The eleven programmes Haier's
   data marks `dashboard` for the HD90 — the same eleven the manual lists — in
   dial order, sent as the machine's own `hqd_*` programmes. Sports, Quick dry,
@@ -53,6 +165,25 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Time dropdown are filled from what the chosen programme allows, with its
   default in Haier's data marked "(recommended)" and selected. A setting the
   programme fixes is shown as "(fixed)" and not sent.
+
+### Changed
+
+- **The distribution is now `pastie-hon`**, matching the repository, because
+  `pastie` on PyPI belongs to an unrelated project. The import and the `pastie`
+  commands are unchanged. Reinstall an existing checkout with
+  `pip install -e . -c constraints.txt`.
+- **"Background watcher", not "service", in everything a user reads**: the
+  window, the installer's Startup shortcut and the README. On Windows "service"
+  means a Windows service, and this is an ordinary program that starts when you
+  sign in. The code and the `pastie service` command keep their names.
+  `install-shortcuts.ps1` replaces its old "Pastie service" Startup shortcut.
+- **Licence metadata is the SPDX expression `MIT`** (setuptools 77+), not the
+  whole licence text.
+- **The explanation of where the password is kept is corrected.** The docs said
+  the service runs under its own Windows identity. It doesn't: it runs as you,
+  at sign-in. The encryption itself was always right (DPAPI, under the account
+  that runs the service, useless on another account or PC); the stated reason
+  was stale.
 
 ### Fixed
 
