@@ -559,35 +559,38 @@ def _preview_hero(store: PersonalityStore, sheet: Sheet, state: str) -> dict[str
     return hero
 
 
-def _claim_taskbar_identity() -> None:
-    if sys.platform != "win32":
-        return
-    import ctypes
+# The Windows-only bodies below sit *inside* the platform check rather than
+# after an early return: mypy on the Linux CI leg treats code after
+# `if sys.platform != "win32": return` as unreachable and fails the build.
 
-    try:
-        set_app_id = ctypes.WinDLL("shell32").SetCurrentProcessExplicitAppUserModelID
-        set_app_id.argtypes = [ctypes.c_wchar_p]
-        set_app_id(APP_ID)
-    except (AttributeError, OSError) as error:
-        log.warning("could not set the taskbar identity: %s", error)
+
+def _claim_taskbar_identity() -> None:
+    if sys.platform == "win32":
+        import ctypes
+
+        try:
+            set_app_id = ctypes.WinDLL("shell32").SetCurrentProcessExplicitAppUserModelID
+            set_app_id.argtypes = [ctypes.c_wchar_p]
+            set_app_id(APP_ID)
+        except (AttributeError, OSError) as error:
+            log.warning("could not set the taskbar identity: %s", error)
 
 
 def _dark_title_bar(window: Any, dark: bool) -> None:
     """Ask Windows for a dark or light title bar (UI-SPEC 11, question 3). Cosmetic."""
-    if sys.platform != "win32":
-        return
-    import ctypes
+    if sys.platform == "win32":
+        import ctypes
 
-    try:
-        hwnd = int(window.native.Handle.ToInt64())
-        value = ctypes.c_int(1 if dark else 0)
-        dwm = ctypes.WinDLL("dwmapi")
-        # DWMWA_USE_IMMERSIVE_DARK_MODE is 20 on current builds, 19 on older ones.
-        for attribute in (20, 19):
-            if dwm.DwmSetWindowAttribute(hwnd, attribute, ctypes.byref(value), 4) == 0:
-                break
-    except Exception as error:  # noqa: BLE001 - a light title bar is not a failure
-        log.debug("dark title bar unavailable: %s", error)
+        try:
+            hwnd = int(window.native.Handle.ToInt64())
+            value = ctypes.c_int(1 if dark else 0)
+            dwm = ctypes.WinDLL("dwmapi")
+            # DWMWA_USE_IMMERSIVE_DARK_MODE is 20 on current builds, 19 on older ones.
+            for attribute in (20, 19):
+                if dwm.DwmSetWindowAttribute(hwnd, attribute, ctypes.byref(value), 4) == 0:
+                    break
+        except Exception as error:  # noqa: BLE001 - a light title bar is not a failure
+            log.debug("dark title bar unavailable: %s", error)
 
 
 def _no_webview2(error: Exception) -> None:
