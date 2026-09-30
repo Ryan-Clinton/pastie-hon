@@ -51,7 +51,16 @@ _URGENT_SECONDS = 5
 #: because a line every two minutes saying the clock moved is not a record of
 #: anything, and it would hide the lines that are.
 _ALWAYS_MOVING = frozenset(
-    {"remainingTimeMM", "remainingStandbyTime", "antiCreaseTime", "delayTime"}
+    {
+        "remainingTimeMM",
+        "remainingStandbyTime",
+        "antiCreaseTime",
+        "delayTime",
+        # The washer's main-wash countdown. Its water and electricity meters are
+        # left in on purpose until a real cycle shows how often they tick: when
+        # they reset may turn out to mark the start of a cycle.
+        "remainingMainWashTime",
+    }
 )
 
 

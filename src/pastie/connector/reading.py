@@ -25,6 +25,7 @@ _MAINTENANCE_LABELS = {
     "filterCleaning": "a filter clean",
     "drumCleaning": "a drum clean",
     "sprayArmsCleaning": "a spray-arm clean",
+    "drawerCleaning": "a detergent drawer clean",
 }
 
 

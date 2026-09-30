@@ -280,6 +280,83 @@ TUMBLE_DRYER = Profile(
 )
 
 
+# ---------------------------------------------------------- washing machine
+
+#: Written ahead of a Haier HW100-BP14357 (X5) arriving, and **not verified**:
+#: every mapping below is the community's, and nobody here has watched one of
+#: these machines do anything yet. Until somebody has, the flags stay False and
+#: a washer gets exactly what any unverified appliance gets - its name, its model
+#: and its raw values, with the phase words marked unconfirmed.
+#:
+#: What the first real cycles need to settle, in order:
+#:
+#: * Mode 7. The shared constants call it "ready", as they did on the dryer,
+#:   where it turned out to be the finish signal. Home Assistant users treat it
+#:   as "finished" on washers too, and report a false finish when a washer that
+#:   was offline comes back already in 7. The tracker only announces a finish
+#:   reached from running, and baselines the first reading of a session, so that
+#:   trap is already closed - but the mapping itself is still a guess.
+#: * The phases. The community's washer map repeats values across stages and is
+#:   known to differ by model; the dryer's turned out to run backwards.
+#: * The total. The dryer reports a fixed programme length in `dryTimeMM`, which
+#:   is what makes "still estimating" possible. No washer equivalent has been
+#:   seen, so remaining time will have no settled-ness test until one is found.
+#: * The counter. The dryer's cycle counter is `programsCounter` on the
+#:   statistics endpoint. A washer reports that too, and also `totalWashCycle`
+#:   in its live parameters; which one moves at the end of a cycle is unknown.
+#: * `message`. Present on washers, meaning nothing yet. The dryer's 4 is its
+#:   tank; nothing here assumes a washer's 4 is anything.
+#: * Remote start. hOn's own FAQ says a washer needs remote control switched on
+#:   at the machine and the door shut. Pastie keeps to that however it turns out.
+WASHING_MACHINE = Profile(
+    appliance_type="WM",
+    label="washing machine",
+    states={
+        "0": ApplianceState.IDLE,  # NO_STATE
+        "1": ApplianceState.IDLE,  # SELECTION_MODE
+        "2": ApplianceState.RUNNING,  # EXECUTION_MODE
+        "3": ApplianceState.PAUSED,  # PAUSE_MODE
+        "4": ApplianceState.SCHEDULED,  # DELAY_START_SELECTION_MODE
+        "5": ApplianceState.SCHEDULED,  # DELAY_START_EXECUTION_MODE
+        "6": ApplianceState.FAULT,  # ERROR_MODE
+        "7": ApplianceState.FINISHED,  # END_MODE - as on the dryer, if it holds
+        "8": ApplianceState.IDLE,  # TEST_MODE
+        "9": ApplianceState.RUNNING,  # STOP_MODE
+    },
+    states_verified=False,
+    faults_verified=False,
+    # pyhOn's WASHING_PR_PHASE, verbatim.
+    phases={
+        "0": "ready",
+        "1": "washing",
+        "2": "washing",
+        "3": "spinning",
+        "4": "rinsing",
+        "5": "rinsing",
+        "6": "rinsing",
+        "7": "drying",
+        "8": "drying",
+        "9": "steam",
+        "10": "ready",
+        "11": "spinning",
+        "12": "weighing",
+        "13": "weighing",
+        "14": "washing",
+        "15": "washing",
+        "16": "washing",
+        "17": "rinsing",
+        "18": "rinsing",
+        "19": "scheduled",
+        "20": "tumbling",
+        "24": "refresh",
+        "25": "washing",
+        "26": "heating",
+        "27": "washing",
+    },
+    phases_verified=False,
+)
+
+
 #: Every other appliance type Haier's system covers. Detected, named, and shown
 #: as raw numbers - because guessing what a value means on an oven or an
 #: induction hob is a different proposition from guessing on a dryer.
@@ -296,7 +373,7 @@ KNOWN_TYPES = {
     "AP": "air purifier",
 }
 
-_PROFILES = {TUMBLE_DRYER.appliance_type: TUMBLE_DRYER}
+_PROFILES = {profile.appliance_type: profile for profile in (TUMBLE_DRYER, WASHING_MACHINE)}
 
 
 def unverified(appliance_type: str) -> Profile:
@@ -319,4 +396,5 @@ def for_appliance(appliance_type: str | None) -> Profile:
 
 
 def verified_types() -> tuple[str, ...]:
-    return tuple(sorted(_PROFILES))
+    """Types with a verified state mapping - not every type with a profile."""
+    return tuple(sorted(key for key, profile in _PROFILES.items() if profile.states_verified))

@@ -391,6 +391,15 @@ that one mapping verified; the rest stays raw until someone gets to it.
 If you have one of these appliances and are willing to test it properly, that's
 one of the most useful contributions you could make.
 
+A profile can be written down before it is trusted. The washing machine's is
+(`WASHING_MACHINE`, ahead of an HW100-BP14357 arriving): it holds the community's
+state and phase maps with every `*_verified` flag False. Until they flip, the
+washer is treated like any other unverified type, and the only visible effect is
+that its phase numbers get words marked "(unconfirmed)". Put its fields on the
+allow-list in `connector/scrub.py` at the same time. A field that isn't on the
+list never reaches the change journal, and the journal is how a mapping gets
+verified.
+
 ---
 
 ## 10. Passwords and security

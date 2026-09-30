@@ -14,7 +14,13 @@ from pathlib import Path
 import pytest
 
 from pastie.connector.hon import CommandRejectedError, HonConnector
-from pastie.connector.profiles import TUMBLE_DRYER, for_appliance, unverified
+from pastie.connector.profiles import (
+    TUMBLE_DRYER,
+    WASHING_MACHINE,
+    for_appliance,
+    unverified,
+    verified_types,
+)
 from pastie.connector.reading import RawReading, translate
 from pastie.connector.scrub import scrub_identity, scrub_parameters, scrub_statistics
 from pastie.core.events import EventKind
@@ -134,6 +140,51 @@ def test_an_unverified_appliance_type_is_named_but_not_interpreted() -> None:
     assert snapshot.trust is Trust.UNVERIFIED
     assert snapshot.fault_code is None  # and never alerted on
     assert snapshot.raw["machMode"] == "6"  # raw values still shown
+
+
+def test_a_washing_machine_is_named_but_not_interpreted_until_somebody_owns_one() -> None:
+    """The profile is written down ahead of the machine, and trusts none of it yet."""
+    washer = for_appliance("WM")
+    assert washer is WASHING_MACHINE
+    assert washer.trust is Trust.UNVERIFIED
+    assert washer.commands == frozenset()
+    assert "WM" not in verified_types()
+
+    reading = RawReading(
+        appliance_id="washer-1",
+        observed_at=load("dryer_cycle.json")[0].observed_at,
+        parameters={"machMode": "7", "prPhase": "11", "errors": "E2", "message": "4"},
+        identity={"applianceTypeName": "WM", "modelName": "HW100-BP14357U1"},
+    )
+    snapshot = translate(reading, washer)
+
+    assert snapshot.name == "washing machine"
+    assert snapshot.state is ApplianceState.UNKNOWN  # 7 is not "finished" until seen
+    assert snapshot.fault_code is None
+    assert snapshot.attention is None  # the dryer's 4 is its tank, not the washer's
+    assert snapshot.raw["phase"] == "spinning (unconfirmed)"
+
+
+def test_a_washers_own_fields_survive_the_allow_list() -> None:
+    """So the change journal can see them from the very first cycle."""
+    kept = scrub_parameters(
+        {
+            "doorLockStatus": "1",
+            "remainingMainWashTime": "12",
+            "totalWashCycle": "31",
+            "currentWaterUsed": "44",
+            "detWarn": "0",
+        }
+    )
+    assert set(kept) == {
+        "doorLockStatus",
+        "remainingMainWashTime",
+        "totalWashCycle",
+        "currentWaterUsed",
+        "detWarn",
+    }
+    kept_statistics = scrub_statistics({"drawerCleaning": {"tot": 100, "count": 1}})
+    assert kept_statistics == {"drawerCleaning": {"tot": 100, "count": 1}}
 
 
 def test_an_unknown_appliance_type_still_gets_a_profile() -> None:

@@ -72,6 +72,41 @@ SAFE_PARAMETERS = frozenset(
         "spinSpeed",
         "temp",
         "waterHard",
+        # Washing machine. Listed ahead of one arriving, from a community dump of
+        # a running Haier I-Pro washer and the Home Assistant integration's
+        # sensor list - not from our own machine. They are here so the change
+        # journal can see them from the first cycle: the tank was missed on the
+        # dryer because `message` was not on this list when it happened.
+        "doorLockStatus",
+        "delayStatus",
+        "remainingMainWashTime",
+        "remainingRinseIterations",
+        "mainWashTime",
+        "rinseIterations",
+        "weight",
+        "actualWeight",
+        "dirtyLevel",
+        "stainType",
+        "prewash",
+        "extraRinse1",
+        "extraRinse2",
+        "extraRinse3",
+        "goodNight",
+        "acquaplus",
+        "autoDetergentStatus",
+        "autoSoftenerStatus",
+        "detWarn",
+        "softWarn",
+        "detergentPercent",
+        "dryCleaningNeeded",
+        # The washer keeps its counters in its live parameters as well as in
+        # the statistics endpoint. Litres and kWh, per cycle and in total.
+        "currentWashCycle",
+        "totalWashCycle",
+        "currentWaterUsed",
+        "totalWaterUsed",
+        "currentElectricityUsed",
+        "totalElectricityUsed",
     }
 )
 
@@ -82,8 +117,12 @@ SAFE_STATISTICS = frozenset(
         "filterCleaning",
         "drumCleaning",
         "sprayArmsCleaning",
+        # A washing machine's third service interval, same {tot, count} shape.
+        "drawerCleaning",
         "loadingPercentage",
         "mostUsedPrograms",
+        # Cycles by wash temperature band: counts, nothing else.
+        "temperatureUsage",
     }
 )
 

@@ -223,6 +223,42 @@ in mind. And **it is worth sending upstream**: `pyhOn` has no mapping for
 `message` on tumble dryers, and the phases it lists as "unknown" are still
 unknown.
 
+**A washing machine is on its way (HW100-BP14357, X5).** It has an
+**unverified** profile, `WASHING_MACHINE` in `connector/profiles.py`, and its
+fields are on the allow-list. So, as soon as it is added to the same hOn account,
+it will show up named, stamped UNVERIFIED, with raw values and a journal of
+every change. It will announce nothing yet. That is deliberate. Before any
+mapping is marked verified, run a few watched cycles and settle, from the
+journal:
+
+- whether `machMode` 7 is the finish signal, as it is on the dryer
+- which phase numbers this model really uses
+- whether anything plays the part of the dryer's `dryTimeMM` (a fixed
+  programme length), without which remaining time has no settled-ness test
+- which counter moves at the end of a cycle: `programsCounter` on the
+  statistics endpoint or `totalWashCycle` in the live parameters (the reader
+  currently takes the former)
+- what `message` and `errors` carry
+- whether remote start needs arming at the panel. hOn's FAQ says remote control
+  has to be switched on at the machine and the door shut.
+
+The profile's comment has the detail. Record each fact where the dryer's are
+recorded, with the date observed.
+
+On **washer and dryer "sharing"**: researched 2026-09-30, and there is nothing
+to build on yet.
+- The only named feature is Hoover's "Sync with your washer" (H-WASH 500 with
+  H-DRY 500): the app picks the dryer programme from the wash programme, spin and
+  load.
+- Haier's pages for neither the X5 nor the HD90 mention an equivalent. The hOn
+  app's own strings (`translate-en.txt`) have none, and no pyhOn endpoint or
+  command parameter links two appliances.
+- If it exists for this pair it is app-side. Check the hOn app once both
+  machines are on the account.
+- Pastie could do its own version later: when the washer finishes, suggest or
+  arm-check the dryer from the wash programme. But that needs a *verified*
+  washer finish first, so it waits.
+
 ## Conventions
 
 Commit subjects are lowercase, typed, scoped where it helps:

@@ -10,6 +10,13 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A washing machine profile, written ahead of one arriving** (a Haier
+  HW100-BP14357, X5). **Unverified**: it gives a washer its name and labels its
+  phases "(unconfirmed)" in the diagnostics, and it interprets nothing. There is
+  no state, no fault alerts and no commands until the mappings have been checked
+  on a real machine. The washer's own fields are on the privacy allow-list now,
+  so the change journal records them from the very first cycle. Handover lists
+  what those first cycles have to settle.
 - **`pastie demo`** — replays recorded readings through the real connector, the
   real brain and the real command tracker, with no appliance, no hOn account and
   no network. Six scenarios, each one a case that is easy to get wrong: a
