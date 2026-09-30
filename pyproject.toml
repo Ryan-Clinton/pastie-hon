@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]      # SPDX `license` below
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,14 +10,14 @@ name = "pastie-hon"
 version = "0.3.0"
 description = "Standalone Windows companion for Haier hOn appliances - Hue, Google Home and desktop alerts, status and remote start. No Home Assistant required."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"          # PyChromecast needs 3.11+
 keywords = ["haier", "hon", "haier-hon", "appliance", "tumble-dryer", "hue", "chromecast", "google-home"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Win32 (MS Windows)",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

@@ -595,7 +595,7 @@ def _no_webview2(error: Exception) -> None:
     log.error("the window could not start: %s", error)
     message = (
         "The Pastie window needs Microsoft Edge WebView2, and it could not start.\n\n"
-        "The background service is unaffected, and alerts still work.\n\n"
+        "The background watcher is unaffected, and alerts still work.\n\n"
         "Open Microsoft's WebView2 download page now?"
     )
     try:

@@ -1,7 +1,7 @@
 name: CI
 
-# Pastie ships as a packaged .exe for Windows, so Windows is the platform that
-# matters. Linux is in the matrix anyway: the domain layer is meant to be plain
+# Pastie is built as a packaged Windows program (release.yml builds the
+# installer and zip on a version tag), so Windows is the platform that matters. Linux is in the matrix anyway: the domain layer is meant to be plain
 # Python with no Windows in it, and a Linux run is what proves that stays true.
 
 on:

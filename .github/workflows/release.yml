@@ -90,7 +90,7 @@ jobs:
         shell: bash
         run: python scripts/release_notes.py "$VERSION" > build/pkg/NOTES.md
 
-      - name: publish
+      - name: publish the GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         env:
@@ -100,3 +100,29 @@ jobs:
             --title "Pastie $VERSION" \
             --notes-file build/pkg/NOTES.md \
             build/pkg/*.zip build/pkg/*.exe build/pkg/SHA256SUMS.txt
+
+  # `pip install pastie-hon`, for people who would rather have Python than an
+  # installer. Published only after the Windows build has passed, so a version
+  # on PyPI always has a tested download beside it.
+  #
+  # Trusted publishing: no token is stored anywhere. PyPI trusts this workflow
+  # in this repository, in the `pypi` environment - set up once on pypi.org
+  # (docs/HANDOVER.md, "Releasing").
+  pypi:
+    needs: windows
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: build the sdist and wheel
+        run: pipx run build
+      - name: the package is what PyPI will accept
+        run: pipx run twine check --strict dist/*
+      - uses: pypa/gh-action-pypi-publish@release/v1

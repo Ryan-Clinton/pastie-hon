@@ -48,7 +48,7 @@ Source: "..\THIRD_PARTY_NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
 Name: "{userprograms}\Pastie"; Filename: "{app}\Pastie.exe"; Comment: "What your Haier appliance is doing"
 Name: "{userdesktop}\Pastie"; Filename: "{app}\Pastie.exe"; Tasks: desktopicon
-Name: "{userstartup}\Pastie service"; Filename: "{app}\Pastie.exe"; Parameters: "service"; Tasks: startup
+Name: "{userstartup}\Pastie background watcher"; Filename: "{app}\Pastie.exe"; Parameters: "service"; Tasks: startup
 
 [Run]
 Filename: "{app}\Pastie.exe"; Description: "Open Pastie"; Flags: nowait postinstall skipifsilent

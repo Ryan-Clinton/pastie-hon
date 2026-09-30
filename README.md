@@ -1,30 +1,41 @@
-<p align="center"><img src="assets/brand/pastie-crest.png" alt="Pastie crest" width="140"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Ryan-Clinton/pastie-hon/main/assets/brand/pastie-crest.png" alt="Pastie crest" width="140"></p>
 
 # Pastie for Haier hOn
 
-**Your Haier appliance can already tell your phone when it's finished. Pastie
-lets it tell everything else.**
+**Make your Haier appliance part of your smart home, without Home Assistant.**
 
 [![CI](https://github.com/Ryan-Clinton/pastie-hon/actions/workflows/ci.yml/badge.svg)](https://github.com/Ryan-Clinton/pastie-hon/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Ryan-Clinton/pastie-hon?include_prereleases)](https://github.com/Ryan-Clinton/pastie-hon/releases)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
-[![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
+[![Windows](https://img.shields.io/badge/platform-Windows-0078D6)](#install)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](https://github.com/Ryan-Clinton/pastie-hon/blob/main/LICENSE)
 
-- 💡 **Flash a Philips Hue light** when the cycle ends
-- 🔊 **Say it out loud** on a Google Home, Nest or Chromecast speaker
-- 🔔 **Pop up a Windows notification**, with nothing else to set up
-- 🔗 **Call any webhook**: ntfy, Home Assistant, Node-RED, your own script
-- ⚠️ **Tell you about faults and a full water tank**, which the phone app doesn't
-- ▶️ **Start a cycle from your desk** once it has been armed at the machine
+Pastie runs on Windows and watches appliances connected through Haier's hOn
+service. When your dryer finishes, it can:
 
-**No Home Assistant required.** No server, no Docker, no YAML. It's a small
-Windows app.
+- 💡 **flash your Philips Hue lights**
+- 🔊 **announce it** on a Google Home, Nest or Chromecast speaker
+- 🖥️ **show a Windows notification**, with nothing else to set up
+- 🔗 **fire a webhook**: ntfy, Home Assistant, Node-RED, your own script
+- ⚠️ **tell you about faults, a full water tank and maintenance**, which the
+  phone app doesn't
 
-![pastie demo, recorded from the real program](assets/demo.gif)
+It also shows what the appliance is doing, and can start a programme from your
+desk once it has been armed at the machine.
 
-**[Download for Windows](https://github.com/Ryan-Clinton/pastie-hon/releases/latest)** ·
-**[Try the demo](#try-it-without-an-appliance)** ·
-**[Will my appliance work?](#will-my-appliance-work)**
+![Pastie's home screen, mid-cycle](https://raw.githubusercontent.com/Ryan-Clinton/pastie-hon/main/assets/screenshots/appliance.png)
+
+**[Download Pastie for Windows](https://github.com/Ryan-Clinton/pastie-hon/releases/latest)** ·
+[Will my appliance work?](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/COMPATIBILITY.md) ·
+[See how it handles the hard cases](#the-hard-cases-without-an-appliance)
+
+Currently verified against the **Haier HD90-A2959R-UK** tumble dryer. Own
+another hOn appliance? [Help us verify it](#help-pastie-learn-your-appliance).
+No programming is needed.
+
+**Don't run Home Assistant? Pastie is for you.** If you already do, use one of
+the mature hOn integrations; they do far more as an automation platform. Pastie
+exists for everyone else: it started because somebody wanted the tumble dryer
+to flash the lights when it finished, and didn't want to install a
+home-automation server to do it.
 
 > **Unofficial.** Not affiliated with, endorsed by, or supported by Haier. Pastie
 > talks to Haier's hOn service through an unofficial, community-maintained
@@ -33,22 +44,6 @@ Windows app.
 > claims compatibility nobody has verified. MIT licensed. Nobody's paid.
 
 ---
-
-## See it work
-
-| | |
-|---|---|
-| ![The home screen, Departmental, mid-cycle](assets/screenshots/appliance.png) | ![Settings, drawn from what each messenger declares](assets/screenshots/settings.png) |
-
-```
-$ pastie status
-Working normally
-
-Tumble dryer  (HD90-A2959R-UK)
-  state       running
-  programme   Mixed load
-  remaining   about 120 min (still estimating)
-```
 
 ## Install
 
@@ -66,6 +61,8 @@ Tumble dryer  (HD90-A2959R-UK)
 4. **Choose what should happen**: a light, a speaker, a notification, a webhook.
    Each one has a Test button.
 
+![Settings, drawn from what each messenger declares](https://raw.githubusercontent.com/Ryan-Clinton/pastie-hon/main/assets/screenshots/settings.png)
+
 **"Windows protected your PC"?** The download isn't code-signed, because a
 signing certificate costs money this project doesn't have. Windows SmartScreen
 therefore warns about it until enough people have run it. Click *More info →
@@ -77,10 +74,12 @@ An hOn account created with **Google sign-in** has no password, and the client
 can't do OAuth. Set a password on the same email address separately, or use
 hOn's Family Sharing to add a second account that has a password.
 
-### Try it without an appliance
+### The hard cases, without an appliance
 
-You don't need a dryer, an hOn account or a network to see whether any of this
-is real:
+Want to see how Pastie handles the difficult cases? You don't need a dryer, an
+hOn account or a network:
+
+![pastie demo, recorded from the real program](https://raw.githubusercontent.com/Ryan-Clinton/pastie-hon/main/assets/demo.gif)
 
 ```
 pastie-cli demo gap          (in the download's folder)
@@ -107,15 +106,16 @@ from the code and start lying.
 
 ## Will my appliance work?
 
-| Appliance | Model | Status | State | Alerts | Remote start |
-|---|---|---|---|---|---|
-| Haier tumble dryer | HD90-A2959R-UK | ✅ Verified | ✅ | ✅ finish, fault, full tank, filter | ✅ once armed at the machine |
-| Haier washing machine | HW100-BP14357 (X5) | 🧪 Profile written, waiting on real cycles | raw only | ❌ | ❌ |
-| Any other hOn appliance | any | 🔎 Detected and named | raw only | ❌ | ❌ |
+| Appliance | Model | Status |
+|---|---|---|
+| Haier tumble dryer | HD90-A2959R-UK | ✅ Verified: state, alerts, remote start once armed |
+| Haier washing machine | HW100-BP14357 (X5) | 🧪 Testing: profile written, waiting on real cycles |
+| Any other Haier, Candy or Hoover hOn appliance | any | 🔎 Detected: named, raw values only |
 
-"Raw only" means Pastie shows the appliance's own numbers, labelled as raw, and
-draws no conclusions from them. The same number means different things on
-different machines, so guessing would be worse than saying nothing
+The full list, and what each level means, is in
+**[docs/COMPATIBILITY.md](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/COMPATIBILITY.md)**. "Raw only" means Pastie shows
+the appliance's own numbers, labelled as raw, and draws no conclusions from
+them. The same number means different things on different machines
 ([why](#trust)).
 
 ### Help Pastie learn your appliance
@@ -205,8 +205,8 @@ completed cycle apart from a cancelled one. Without it, Pastie says the vaguer,
 truthful thing instead.
 
 Every announcement is written down before it goes out, so a restart can't fire
-it twice. ([`core/tracker.py`](src/pastie/core/tracker.py) ·
-[the long version](docs/recovering-missed-appliance-events.md))
+it twice. ([`core/tracker.py`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/src/pastie/core/tracker.py) ·
+[the long version](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/recovering-missed-appliance-events.md))
 
 ### "Accepted" doesn't mean "done"
 
@@ -230,8 +230,8 @@ Accepted by Haier, but the machine didn't react within 20 seconds
 ```
 
 Success is never reported off the back of a server response.
-([`core/commands.py`](src/pastie/core/commands.py) ·
-[the long version](docs/why-accepted-isnt-success.md))
+([`core/commands.py`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/src/pastie/core/commands.py) ·
+[the long version](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/why-accepted-isnt-success.md))
 
 ### Trust
 
@@ -251,8 +251,8 @@ or it isn't. An unverified type gets:
 | **No commands at all** | Commands that have been tested |
 
 Verification is per-mapping, not per-appliance.
-([`connector/profiles.py`](src/pastie/connector/profiles.py) ·
-[the long version](docs/safely-reverse-engineering-hon.md))
+([`connector/profiles.py`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/src/pastie/connector/profiles.py) ·
+[the long version](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/safely-reverse-engineering-hon.md))
 
 ---
 
@@ -285,8 +285,10 @@ Haier's side cost one file instead of the whole codebase. They did change
 something, in June 2026, and everything broke until the community client caught
 up.
 
-The **service** holds the only connection to Haier. The **app** doesn't open its
-own; it asks the service over a Windows named pipe. That way the two can't
+The **background watcher** (in the code, the *service*: `pastie service`)
+holds the only connection to Haier. It's an ordinary program that starts when
+you sign in, not a Windows service. The **app** doesn't open its own connection;
+it asks the watcher over a Windows named pipe. That way the two can't
 disagree about what the machine is doing, and nothing listens on a network
 address that a web page in your browser could reach.
 
@@ -299,9 +301,10 @@ Delete that folder if you want them gone.
 ### Your hOn password
 
 Pastie encrypts it with Windows DPAPI under the Windows account that runs
-Pastie's service. Today that's you, because the service starts when you sign in.
+Pastie's background watcher. Today that's you, because the watcher starts when
+you sign in to Windows.
 The encrypted file can't simply be copied to another Windows account or PC and
-decrypted there. The window hands a new password to the service and never
+decrypted there. The window hands a new password to the watcher and never
 stores or reads one, and there is deliberately no way to read one back out.
 
 ---
@@ -326,9 +329,10 @@ The Python distribution is called `pastie-hon` (`pastie` on PyPI is somebody
 else's project). The commands are still `pastie` and `pastie-app`.
 
 `powershell -File scripts\install-shortcuts.ps1` puts the window on the Start
-menu and the Desktop, and the service in Startup. It runs as you, at sign-in.
+menu and the Desktop, and the background watcher in Startup. It runs as you,
+at sign-in.
 That isn't the same as a Windows service, and the difference is
-[recorded honestly](docs/SPEC.md) rather than papered over.
+[recorded honestly](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/SPEC.md) rather than papered over.
 
 Already running the old prototype? `pastie migrate --folder prototype` brings
 your account and your Hue and speaker settings across. **Your existing Hue key
@@ -340,8 +344,8 @@ keeps working**, with no button to press on the bridge.
 
 A messenger is anything Pastie can poke when something happens. To add one,
 write one file, add one line to
-[`messengers/__init__.py`](src/pastie/messengers/__init__.py), and send a pull
-request. [`messengers/desktop.py`](src/pastie/messengers/desktop.py) is the
+[`messengers/__init__.py`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/src/pastie/messengers/__init__.py), and send a pull
+request. [`messengers/desktop.py`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/src/pastie/messengers/desktop.py) is the
 shortest example to copy.
 
 You don't write any interface code. A messenger *describes* its settings, and
@@ -361,7 +365,7 @@ class MyLight:
 ```
 
 Four rules are enforced centrally in
-[`messengers/base.py`](src/pastie/messengers/base.py) rather than trusted to
+[`messengers/base.py`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/src/pastie/messengers/base.py) rather than trusted to
 each author:
 
 - **A messenger failing must not take anything else down.** They run
@@ -406,16 +410,16 @@ duplicated announcement, which is what a user would actually notice.
 by removing the bad ones one at a time. Haier's responses carry the appliance's
 GPS coordinates, MAC address and serial number, and Haier can add new fields
 whenever it likes. The allow-list is
-[`connector/scrub.py`](src/pastie/connector/scrub.py). The same applies to
+[`connector/scrub.py`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/src/pastie/connector/scrub.py). The same applies to
 anything you attach to a bug report.
 
-- [`docs/SPEC.md`](docs/SPEC.md): the design, including everything we know
+- [`docs/SPEC.md`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/SPEC.md): the design, including everything we know
   about Haier's system that isn't written down anywhere else
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): what's next
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): how to send a change
-- [`SECURITY.md`](SECURITY.md): how to report a security problem (please not in
+- [`docs/ROADMAP.md`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/ROADMAP.md): what's next
+- [`CONTRIBUTING.md`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/CONTRIBUTING.md): how to send a change
+- [`SECURITY.md`](https://github.com/Ryan-Clinton/pastie-hon/blob/main/SECURITY.md): how to report a security problem (please not in
   a public issue)
-- [`prototype/`](prototype/): the working scripts this was built from, kept
+- [`prototype/`](https://github.com/Ryan-Clinton/pastie-hon/tree/main/prototype/): the working scripts this was built from, kept
   verbatim as the record of what was actually measured against the hardware
 
 ### Searching the build history

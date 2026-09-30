@@ -392,7 +392,7 @@ CASELOAD_HEADING = "CURRENT CASELOAD"
 
 #: Connecting, by observable stage (UI-SPEC 6.8). Plain uses CONNECTING_PLAIN.
 CONNECTING = {
-    "service": "Contacting the service…",
+    "service": "Contacting the background watcher…",
     "haier": "Contacting Haier…",
     "appliances": "Requesting appliance records…",
     "reading": "Comparing their account with ours…",

@@ -236,9 +236,26 @@ Two lessons worth keeping. **The journal built to catch this missed it.**
 journal ever saw it, and the service recorded only "paused". It was caught
 because the client library happens to log raw pushes. Anything left off the
 allow-list is also something the journal cannot see - add fields there with that
-in mind. And **it is worth sending upstream**: `pyhOn` has no mapping for
-`message` on tumble dryers, and the phases it lists as "unknown" are still
-unknown.
+in mind. **It has been sent upstream**, on 2026-09-24, along with the other
+findings. As of 2026-09-30 nobody has replied; the maintainer's last commit was
+2026-09-20.
+
+- hon-revived: [#72](https://github.com/mmalolepszy/hon-revived/issues/72)
+  (mode 7 is the finish) and
+  [#73](https://github.com/mmalolepszy/hon-revived/issues/73) (tank =
+  `message` 4)
+- pyhon-revived:
+  [#14](https://github.com/mmalolepszy/pyhon-revived/issues/14) (anonymous
+  export leaks account ids),
+  [#15](https://github.com/mmalolepszy/pyhon-revived/issues/15) (programmes the
+  model lacks are accepted and ignored) and
+  [#16](https://github.com/mmalolepszy/pyhon-revived/issues/16) (`send()`
+  returning True means accepted, not done)
+- hon-test-data: [PR #9](https://github.com/mmalolepszy/hon-test-data/pull/9),
+  this dryer's scrubbed data. That repository has been quiet since 2025-11. Its
+  unanswered [#6](https://github.com/mmalolepszy/hon-test-data/issues/6) is an
+  HD90-A2959R-FR owner, a natural person to ask about Pastie's
+  [#2](https://github.com/Ryan-Clinton/pastie-hon/issues/2).
 
 **A washing machine is on its way (HW100-BP14357, X5).** It has an
 **unverified** profile, `WASHING_MACHINE` in `connector/profiles.py`, and its
@@ -275,6 +292,35 @@ to build on yet.
 - Pastie could do its own version later: when the washer finishes, suggest or
   arm-check the dryer from the wash programme. But that needs a *verified*
   washer finish first, so it waits.
+
+## Releasing
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`. The tag must equal
+`pastie.__version__`, and the notes are that version's CHANGELOG section. It
+builds the Windows folder, self-checks it and runs the demo against the build,
+then publishes the zip, the installer and SHA256SUMS as a GitHub Release. If
+that passes, it publishes the sdist and wheel to PyPI as `pastie-hon`.
+
+**One-time PyPI set-up, before the first tag.** PyPI → Your account →
+Publishing → *Add a new pending publisher*: PyPI project name `pastie-hon`,
+owner `Ryan-Clinton`, repository `pastie-hon`, workflow `release.yml`,
+environment `pypi`. Then, in the GitHub repository, Settings → Environments →
+New environment `pypi` (adding yourself as a required reviewer makes every
+upload wait for a click). No token is stored anywhere. The name `pastie-hon` was
+free on PyPI on 2026-09-30.
+
+**Before tagging 0.3.0**, two checks that nothing automated covers:
+
+- The packaged watcher against a real account. Stop the development watcher,
+  run `build\pkg\dist\Pastie\Pastie.exe`, and look for
+  `Lifecycle Connection Success` in the log (`pastie where`). It uses the same
+  settings and the same DPAPI-encrypted password, because it runs as the same
+  Windows user.
+- The installer on a PC with no Python and no development tools. Windows
+  Sandbox isn't available on the development machine, so this needs another
+  PC or a VM.
+
+Merge to `main` first. The README's links and images point at `main`.
 
 ## Conventions
 

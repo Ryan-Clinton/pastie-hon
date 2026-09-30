@@ -9,7 +9,7 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
-## [0.3.0] — first public release (not yet tagged)
+## [0.3.0] — first public preview (not yet tagged)
 
 Pastie watches a Haier hOn appliance and tells the rest of your home when it
 finishes: a Hue light, a spoken announcement on Google Home, a Windows
@@ -37,6 +37,13 @@ what should happen.
   `.github/workflows/release.yml` from `packaging/`. Every build is checked as
   built with `pastie-cli --self-check`, which imports every native part the
   service needs, and a full demo run.
+- **`pip install pastie-hon`**, published to PyPI by the same release workflow
+  through trusted publishing (no stored token), and only after the Windows build
+  has passed. The README's images and links are absolute, so they display on
+  PyPI too.
+- **docs/COMPATIBILITY.md**: every appliance at one of four levels (Detected,
+  Testing, Verified, Community verified), with a no-programming route to move one
+  up.
 - **Windows notifications** (`messengers/desktop.py`), for anybody with no
   bridge, speaker or webhook receiver. No new dependency: Windows' own toast
   notifications, through Windows PowerShell. The event's text is passed as
@@ -161,6 +168,13 @@ what should happen.
   `pastie` on PyPI belongs to an unrelated project. The import and the `pastie`
   commands are unchanged. Reinstall an existing checkout with
   `pip install -e . -c constraints.txt`.
+- **"Background watcher", not "service", in everything a user reads**: the
+  window, the installer's Startup shortcut and the README. On Windows "service"
+  means a Windows service, and this is an ordinary program that starts when you
+  sign in. The code and the `pastie service` command keep their names.
+  `install-shortcuts.ps1` replaces its old "Pastie service" Startup shortcut.
+- **Licence metadata is the SPDX expression `MIT`** (setuptools 77+), not the
+  whole licence text.
 - **The explanation of where the password is kept is corrected.** The docs said
   the service runs under its own Windows identity. It doesn't: it runs as you,
   at sign-in. The encryption itself was always right (DPAPI, under the account

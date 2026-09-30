@@ -54,7 +54,7 @@ HEALTH_WORDS = {
     "auth": "Can't log in",
     "schema": "Can't understand Haier's response",
     "offline": "Can't reach the internet",
-    "down": "The service isn't running",
+    "down": "Pastie's background watcher isn't running",
 }
 
 #: How long a finished command's full paper trail stays open (UI-SPEC 6.5).
@@ -499,7 +499,7 @@ class Presenter:
             return None
         if status is None and not self._ever_ready:
             return None  # still starting up: the connecting line covers it
-        layers = [("Pastie service", "NOT RUNNING" if health == "down" else "WORKING")]
+        layers = [("Background watcher", "NOT RUNNING" if health == "down" else "WORKING")]
         if health != "down":
             layers.append(("Internet", "NOT REACHABLE" if health == "offline" else "CONNECTED"))
         if health in ("auth", "schema"):
@@ -507,7 +507,7 @@ class Presenter:
         if health == "schema":
             layers.append(("Haier's response", "NOT UNDERSTOOD"))
         tries = {
-            "down": ["Start Pastie's background service. Alerts don't work until it's running."],
+            "down": ["Start Pastie's background watcher. Alerts don't work until it's running."],
             "offline": ["Check this PC's internet connection."],
             "auth": ["Check your hOn password in Settings → Account."],
             "schema": [

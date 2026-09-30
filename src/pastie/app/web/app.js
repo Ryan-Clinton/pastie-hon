@@ -477,7 +477,7 @@ function renderDiagnostics(d) {
 
 async function renderSettings() {
   const el = $("view-settings");
-  el.innerHTML = `<h2>Settings</h2><p class="muted">Asking the service…</p>`;
+  el.innerHTML = `<h2>Settings</h2><p class="muted">Asking the background watcher…</p>`;
   const [s, appearance] = await Promise.all([api().settings(), api().appearance()]);
   el.innerHTML = `<h2>Settings</h2>
     <div class="card" id="account-card"></div>
@@ -490,7 +490,7 @@ async function renderSettings() {
   renderAppearance(appearance);
   renderPersonalities();
   if (!s.ok) {
-    $("messenger-cards").innerHTML = `<div class="card"><p class="result bad">The service isn't answering, so there's nothing to show here yet. ${esc(s.error)}</p></div>`;
+    $("messenger-cards").innerHTML = `<div class="card"><p class="result bad">Pastie's background watcher isn't answering, so there's nothing to show here yet. ${esc(s.error)}</p></div>`;
     return;
   }
   $("messenger-cards").innerHTML = s.messengers.map((m) => `<div class="card" data-messenger="${esc(m.name)}"></div>`).join("");
@@ -501,7 +501,7 @@ function renderAccount(s) {
   const card = $("account-card");
   card.innerHTML = `
     <div class="label">HON ACCOUNT</div>
-    <p class="muted">The service encrypts this with Windows DPAPI under the Windows account running it (yours, as it starts at sign-in), so the file is useless on any other account or PC. It is never stored here, and it cannot be read back out.</p>
+    <p class="muted">Pastie's background watcher encrypts this with Windows DPAPI under the Windows account running it (yours: it starts when you sign in to Windows), so the file is useless on any other account or PC. It is never stored here, and it cannot be read back out.</p>
     <p>${s.ok && s.account ? "An account is saved." : (s.ok ? "No account saved." : "")}</p>
     <div class="field"><label for="acct-user">Email</label><input type="text" id="acct-user" autocomplete="off"></div>
     <div class="field"><label for="acct-pass">Password</label><input type="password" id="acct-pass" autocomplete="off"></div>
@@ -512,7 +512,7 @@ function renderAccount(s) {
     $("acct-pass").value = "";
     const out = $("acct-result");
     out.className = `result ${r.ok ? "good" : "bad"}`;
-    out.textContent = r.ok ? (r.restart_needed ? "Saved. The service will use it after a restart." : "Saved.") : r.error;
+    out.textContent = r.ok ? (r.restart_needed ? "Saved. The background watcher will use it once it restarts." : "Saved.") : r.error;
   });
 }
 
@@ -665,7 +665,7 @@ function drawCard(card) {
       <div class="field"><label>Temperament</label><select data-f="temperament">${optionsHtml(cast.temperaments, card.temperament)}</select></div>
       <div class="field"><label>Pastie's stance</label><select data-f="stance">${optionsHtml(cast.stances, card.stance)}</select></div>
       <div class="field"><label>Personality</label><select data-f="level">${optionsHtml(cast.levels, card.level, LEVEL_LABELS)}</select></div>
-      <div class="field"><label>Speech</label><span class="muted">Needs a service change first (off)</span></div>
+      <div class="field"><label>Speech</label><span class="muted">Needs an update to the background watcher first (off)</span></div>
       <div class="muted" style="margin:10px 0 4px">Meters (Departmental). Leave blank for the programme's own.</div>
       ${meters}` : ""}
     <div class="muted" style="margin:12px 0 4px">Lines</div>
@@ -828,7 +828,7 @@ async function startOnboarding(asides) {
       <div class="card">
         <img class="onboard-crest" src="brand/crest.png" alt="The Pastie crest">
         <h2>Connect your Haier account</h2>
-        <p class="muted">The service encrypts this with Windows DPAPI under the Windows account running it (yours, as it starts at sign-in), so the file is useless on any other account or PC. It is never stored here, and it cannot be read back out.</p>
+        <p class="muted">Pastie's background watcher encrypts this with Windows DPAPI under the Windows account running it (yours: it starts when you sign in to Windows), so the file is useless on any other account or PC. It is never stored here, and it cannot be read back out.</p>
         <div class="field"><label for="ob-user">Email</label><input type="text" id="ob-user" autocomplete="off"></div>
         <div class="field"><label for="ob-pass">Password</label><input type="password" id="ob-pass" autocomplete="off"></div>
         <button class="btn" id="ob-connect">Connect</button>
@@ -846,7 +846,7 @@ async function startOnboarding(asides) {
   const appliances = (restart) => {
     el.innerHTML = `${steps(2)}
       <div class="card"><h2>Finding appliances…</h2>${aside("appliances")}
-        ${restart ? '<p class="note">The background service will use this account once it restarts.</p>' : ""}
+        ${restart ? '<p class="note">The background watcher will use this account once it restarts.</p>' : ""}
         <div id="ob-list"><p class="muted">Asking Haier…</p></div>
         <button class="btn" id="ob-next" disabled>Continue</button></div>`;
     const poll = async () => {
