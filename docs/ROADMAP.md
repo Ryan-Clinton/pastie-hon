@@ -15,10 +15,9 @@ No new appliance logic until it's out.
 - [x] A first-run screen that gets you signed in to hOn
 - [x] "Background watcher", not "service", in everything a user reads
 - [x] `pip install pastie-hon`, published by the release workflow
-- [ ] Run the packaged build against a real hOn account (it needs the dev
-      watcher stopped for a few minutes)
+- [x] Run the packaged build against a real hOn account
 - [ ] Install it on a Windows PC with no Python or development tools
-- [ ] Tag `v0.3.0`: that publishes the GitHub Release and PyPI
+- [x] Tag `v0.3.0`: [released 2026-09-30](https://github.com/Ryan-Clinton/pastie-hon/releases/tag/v0.3.0), on PyPI as `pastie-hon`
 
 ## 0.4: more homes, more machines
 

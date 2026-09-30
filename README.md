@@ -5,6 +5,8 @@
 **Make your Haier appliance part of your smart home, without Home Assistant.**
 
 [![CI](https://github.com/Ryan-Clinton/pastie-hon/actions/workflows/ci.yml/badge.svg)](https://github.com/Ryan-Clinton/pastie-hon/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Ryan-Clinton/pastie-hon)](https://github.com/Ryan-Clinton/pastie-hon/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/pastie-hon)](https://pypi.org/project/pastie-hon/)
 [![Windows](https://img.shields.io/badge/platform-Windows-0078D6)](#install)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](https://github.com/Ryan-Clinton/pastie-hon/blob/main/LICENSE)
 
@@ -325,8 +327,9 @@ python -m venv .venv
 .venv\Scripts\pastie-app        # the window; starts the service if needed
 ```
 
-The Python distribution is called `pastie-hon` (`pastie` on PyPI is somebody
-else's project). The commands are still `pastie` and `pastie-app`.
+Or, without cloning: `pip install pastie-hon`. The Python distribution is
+called `pastie-hon` (`pastie` on PyPI is somebody else's project). The commands
+are still `pastie` and `pastie-app`.
 
 `powershell -File scripts\install-shortcuts.ps1` puts the window on the Start
 menu and the Desktop, and the background watcher in Startup. It runs as you,
