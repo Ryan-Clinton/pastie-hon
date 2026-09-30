@@ -352,9 +352,14 @@ proprietary code, automated builds from source, manual approval of every
 release, and a published policy. `docs/CODE_SIGNING.md` is that policy. It
 carries no SignPath attribution yet, because the project hasn't been accepted.
 Applied 2026-09-30 through the form at https://signpath.org/apply (Individual
-maintainer, GitHub Actions); waiting on review. Ignore the guided set-up on
-signpath.io itself: its test and bought certificates are the paid route.
-After acceptance,
+maintainer, GitHub Actions). **Declined the same day**, for visibility, not
+quality. The Foundation issues certificates in its own name, so it wants
+outside signals first: stars, forks, contributors, articles, Reddit, Stack
+Overflow or YouTube mentions, or institutional backing. Reapply once those
+exist. The reply offered SignPath's paid subscription instead. The guided
+set-up on signpath.io (test certificates, a CSR, a PFX import) is that paid
+route, and a self-signed test certificate does nothing for SmartScreen. If the
+project is ever accepted,
 signing becomes a step in `release.yml` between building and publishing, with
 the `pypi`-style environment approval as the manual gate. The Microsoft Store
 (MSIX, signed by Microsoft) is the longer-term alternative.

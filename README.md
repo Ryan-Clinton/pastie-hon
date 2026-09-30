@@ -72,9 +72,10 @@ tried; if you run one, [say how it went](https://github.com/Ryan-Clinton/pastie-
 ![Settings, drawn from what each messenger declares](https://raw.githubusercontent.com/Ryan-Clinton/pastie-hon/main/assets/screenshots/settings.png)
 
 **"Windows protected your PC"?** The download isn't code-signed yet: a
-certificate costs money this project doesn't have, so it's
-[applying for free open-source signing](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/CODE_SIGNING.md). Windows SmartScreen
-therefore warns about it until enough people have run it. Click *More info →
+certificate costs money this project doesn't have, and free open-source signing
+goes to projects that are already widely known
+([details](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/CODE_SIGNING.md)).
+Windows SmartScreen therefore warns about it until enough people have run it. Click *More info →
 Run anyway*, but only for a file from this repository's Releases page. Each
 release lists SHA256 checksums in `SHA256SUMS.txt` so you can check the file you
 got is the file that was built.

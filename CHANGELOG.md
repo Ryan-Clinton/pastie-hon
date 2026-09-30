@@ -10,6 +10,12 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Changed
+
+- The docs no longer say a code signing application is pending. The SignPath
+  Foundation declined it for now, because the project is too new to show the
+  outside adoption it looks for, and invited a reapplication later.
+
 ### Fixed
 
 - **One version number.** 0.3.1 was tagged with `pastie.__version__` at 0.3.1

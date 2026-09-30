@@ -27,9 +27,10 @@ No new appliance logic until it's out.
 - [x] MAC addresses masked in the log
 - [x] Product name and version in the .exe and installer metadata
 - [x] Apply to the SignPath Foundation for free code signing
-      ([policy](CODE_SIGNING.md)): applied 2026-09-30, waiting on review
-- [ ] Once accepted: signing in `release.yml`, and the Foundation's credit line
-      on the policy page and the release notes
+      ([policy](CODE_SIGNING.md)): declined 2026-09-30 for lack of public
+      visibility yet, with an invitation to reapply
+- [ ] Code signing by another route, or reapply to SignPath once the project
+      is better known
 - [ ] The installer on a clean Windows PC: download, install, sign in, detect,
       notification test, sign out and in (does the watcher start?), uninstall
       (does anything stay behind?)

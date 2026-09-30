@@ -1,12 +1,15 @@
 # Code signing policy
 
-**Status: application submitted to the [SignPath Foundation](https://signpath.org/)
-on 30 September 2026.** Until it's reviewed, Pastie's Windows downloads stay
-unsigned, and Windows SmartScreen warns about them. This page is written to the
-Foundation's requirements. Once the project is
-accepted, this line will read: *Free code signing provided by
-[SignPath.io](https://signpath.io), certificate by
-[SignPath Foundation](https://signpath.org).*
+**Status: not signed.** Pastie's Windows downloads are unsigned, and Windows
+SmartScreen warns about them.
+
+The project applied to the [SignPath Foundation](https://signpath.org/) for free
+open-source code signing on 30 September 2026. The Foundation declined for now:
+it signs in its own name, so it looks for outside signs of adoption first
+(stars, forks, contributors, articles, independent discussion), and Pastie had
+been public for a day. It said the project is welcome to reapply once it's
+better known. This page stays written to the Foundation's requirements so that a
+second application, or a paid signing service, needs no rework.
 
 ## What gets signed
 
