@@ -318,7 +318,19 @@ free on PyPI on 2026-09-30.
   Windows user.
 - The installer on a PC with no Python and no development tools. Windows
   Sandbox isn't available on the development machine, so this needs another
-  PC or a VM.
+  PC or a VM. What *has* been done, on 2026-09-30 on the development machine:
+  `PastieSetup-0.3.0.exe` compiled with Inno Setup 6.7 (19 MB), installed
+  silently into a temporary folder, `--self-check` passed from the installed
+  copy, the Startup shortcut was correctly absent with that task unticked, and
+  the uninstaller removed everything.
+
+Compiling the installer locally: `ISCC.exe /DVersion=<version>
+packaging\pastie.iss`, from PowerShell or cmd. Git Bash rewrites `/D...` as a
+path, and ISCC then complains about two script names. `winget install
+JRSoftware.InnoSetup --scope user` puts ISCC in
+`%LOCALAPPDATA%\Programs\Inno Setup 6`. A test install writes
+`Pastie.lnk` into the Start menu at the same path `install-shortcuts.ps1` uses,
+so back that up first.
 
 Merge to `main` first. The README's links and images point at `main`.
 
