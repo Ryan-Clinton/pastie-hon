@@ -10,6 +10,24 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## [0.3.1] — 2026-09-30
+
+A small follow-up to the first public preview, mostly for people helping to
+verify their appliances.
+
+**What's new**
+
+- **Export appliance report**: About → Diagnostics → *Export appliance report*
+  (or `pastie report`). It's one file to attach when you
+  [help verify an appliance](https://github.com/Ryan-Clinton/pastie-hon/blob/main/docs/COMPATIBILITY.md#moving-an-appliance-up-the-list),
+  with every value that moved and when. It holds no ids, serial numbers, MAC
+  addresses, location or account.
+- The Windows files now show their product name and version in Properties.
+
+**Download:** `PastieSetup-0.3.1.exe`, or the zip. Still unsigned, so
+SmartScreen will warn (*More info → Run anyway*). Free code signing has been
+applied for.
+
 ### Added
 
 - **Export appliance report.** In the window (About → Diagnostics) or
@@ -36,7 +54,6 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The release page gets a short summary**, not the whole changelog section.
   Each version's section opens with that summary; the page links here for the
   rest.
-- **MAC addresses are masked in the log** (see 0.3.0; it shipped there).
 
 ### Changed
 

@@ -52,8 +52,8 @@ gets its raw numbers, labelled as raw, and nothing interpreted from them.
    20:05", "opened the door at 21:40".
 
 (Export arrives in 0.3.1. On 0.3.0, quote the lines Pastie writes to its log
-as values change; `pastie where` shows where the log is. From 0.3.1, MAC
-addresses in the log are masked.)
+as values change; `pastie where` shows where the log is. MAC addresses in
+the log are masked.)
 
 Just want to say what you own before testing anything? Post it in
 [Discussions](https://github.com/Ryan-Clinton/pastie-hon/discussions).
