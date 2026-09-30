@@ -341,7 +341,10 @@ Foundation's free signing for open-source projects: an OSI licence, no
 proprietary code, automated builds from source, manual approval of every
 release, and a published policy. `docs/CODE_SIGNING.md` is that policy. It
 carries no SignPath attribution yet, because the project hasn't been accepted.
-Applying is the owner's job (an account and an agreement); after acceptance,
+Applied 2026-09-30 through the form at https://signpath.org/apply (Individual
+maintainer, GitHub Actions); waiting on review. Ignore the guided set-up on
+signpath.io itself: its test and bought certificates are the paid route.
+After acceptance,
 signing becomes a step in `release.yml` between building and publishing, with
 the `pypi`-style environment approval as the manual gate. The Microsoft Store
 (MSIX, signed by Microsoft) is the longer-term alternative.
