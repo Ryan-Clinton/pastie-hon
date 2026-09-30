@@ -166,6 +166,14 @@ what should happen.
   default in Haier's data marked "(recommended)" and selected. A setting the
   programme fixes is shown as "(fixed)" and not sent.
 
+### Fixed
+
+- **MAC addresses are masked in the log.** The hOn client names its MQTT topics
+  after the appliance's MAC address and logs them as it subscribes. The log is
+  what appliance reports ask owners to quote, so one paste would have put a MAC
+  in a public issue. Found while running the packaged watcher against a real
+  account.
+
 ### Changed
 
 - **The distribution is now `pastie-hon`**, matching the repository, because

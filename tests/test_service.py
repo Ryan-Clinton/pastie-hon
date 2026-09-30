@@ -735,3 +735,31 @@ async def test_the_journal_ignores_counters_that_move_on_their_own(
 
     assert "remainingTimeMM" not in caplog.text
     assert "prPhase 19 -> 20" in caplog.text  # but a real change still lands
+
+
+def test_a_mac_address_never_reaches_the_log() -> None:
+    """The hOn client names its MQTT topics after the appliance's MAC, and logs them."""
+    import io
+    import logging
+
+    from pastie.service.main import MaskHardwareAddresses
+
+    written = io.StringIO()
+    handler = logging.StreamHandler(written)
+    handler.addFilter(MaskHardwareAddresses())
+    client = logging.getLogger("pyhon.connection.mqtt.test")
+    client.addHandler(handler)
+    client.propagate = False
+    try:
+        client.warning(
+            "Subscribed to topic haier/things/%s/event/appliancestatus/update", "78-1c-3c-c1-92-b8"
+        )
+        client.warning("peer 78:1C:3C:C1:92:B8, appliance 3fa94c1e7b20")
+    finally:
+        client.removeHandler(handler)
+
+    text = written.getvalue()
+    assert "78-1c-3c-c1-92-b8" not in text
+    assert "78:1C:3C" not in text
+    assert "haier/things/xx-xx-xx-xx-xx-xx/event" in text
+    assert "3fa94c1e7b20" in text  # an appliance's hashed id is not a MAC, and stays

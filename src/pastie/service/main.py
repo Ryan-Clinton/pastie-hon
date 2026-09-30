@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import logging.handlers
+import re
 import signal
 from dataclasses import dataclass
 from typing import Any
@@ -174,22 +175,50 @@ def register_handlers(service: Service, registry: Any) -> None:
     service.dispatcher.on("command.stop", command_stop)
 
 
+#: A hardware address written with separators: 78-1c-3c-c1-92-b8 or 78:1C:3C:....
+_MAC = re.compile(r"\b[0-9a-f]{2}(?:[-:][0-9a-f]{2}){5}\b", re.IGNORECASE)
+
+
+class MaskHardwareAddresses(logging.Filter):
+    """Blank out MAC addresses before a line reaches the log.
+
+    Pastie's own code never logs one - appliances are keyed by a hash - but the
+    hOn client does: its MQTT topics are named after the appliance's MAC, and it
+    logs them as it subscribes. The log is what owners are asked to quote in an
+    appliance report, so a MAC in it is one paste away from a public issue.
+
+    Masked rather than dropped: the client's lines are worth keeping - its log of
+    raw pushes is how the full water tank was identified.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        masked = _MAC.sub("xx-xx-xx-xx-xx-xx", message)
+        if masked != message:
+            record.msg, record.args = masked, None
+        return True
+
+
 def configure_logging(verbose: bool = False) -> None:
     """Log to a rotating file, and to the console when somebody is watching.
 
     Nothing here ever logs a password, a key or a token - see
-    `pastie.messengers.base.redact`, which exists so there is no excuse.
+    `pastie.messengers.base.redact`, which exists so there is no excuse - and no
+    MAC address gets through either, whoever logged it.
     """
     paths.service_dir().mkdir(parents=True, exist_ok=True)
     handler = logging.handlers.RotatingFileHandler(
         paths.log_file(), maxBytes=1_000_000, backupCount=3, encoding="utf-8"
     )
     handler.setFormatter(logging.Formatter("%(asctime)s  %(levelname)-7s %(name)s  %(message)s"))
+    handler.addFilter(MaskHardwareAddresses())
     root = logging.getLogger()
     root.setLevel(logging.DEBUG if verbose else logging.INFO)
     root.addHandler(handler)
     if verbose:
-        root.addHandler(logging.StreamHandler())
+        console = logging.StreamHandler()
+        console.addFilter(MaskHardwareAddresses())
+        root.addHandler(console)
 
 
 async def run(service: Service, *, with_channel: bool = True) -> None:
