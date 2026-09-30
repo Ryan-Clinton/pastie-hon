@@ -39,8 +39,10 @@ claiming anything works.
   frozen. `.github/workflows/release.yml` builds zip + Inno Setup installer + SHA256SUMS on a `v*`
   tag. The tag must equal `pastie.__version__`, and the release notes are that version's CHANGELOG
   section (`scripts/release_notes.py`).
-- `scripts/demo_gif.py` regenerates `assets/demo.gif` from real demo output. Rerun it when demo
-  wording changes.
+- `scripts/demo_gif.py` regenerates `assets/demo.gif` from real demo output, and
+  `scripts/screenshots.py` retakes `assets/screenshots/` from the real window against a recorded
+  dryer reading (no live account, so nothing personal in the picture). Rerun them when the demo
+  wording or the window changes.
 - `pastie demo [cycle|gap|tank|noise|ignored|unverified|list|all]` replays recorded readings through the real
   connector, tracker and command tracker. Each scenario's claims are pinned in `tests/test_demo.py`,
   so changing behaviour means updating the demo narration too.

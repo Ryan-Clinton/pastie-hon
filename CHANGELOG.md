@@ -41,6 +41,10 @@ what should happen.
   through trusted publishing (no stored token), and only after the Windows build
   has passed. The README's images and links are absolute, so they display on
   PyPI too.
+- **Current screenshots**, taken by `scripts/screenshots.py`. It opens the real
+  window against a recorded dryer reading instead of a live account, so the
+  pictures stay in step with the window and never show a bridge address or
+  account. The old ones predated the redesign.
 - **docs/COMPATIBILITY.md**: every appliance at one of four levels (Detected,
   Testing, Verified, Community verified), with a no-programming route to move one
   up.
