@@ -9,7 +9,7 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
-## [0.3.0] — first public preview (not yet tagged)
+## [0.3.0] — 2026-09-30 — first public preview
 
 Pastie watches a Haier hOn appliance and tells the rest of your home when it
 finishes: a Hue light, a spoken announcement on Google Home, a Windows
