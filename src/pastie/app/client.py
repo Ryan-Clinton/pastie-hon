@@ -96,8 +96,9 @@ class ServiceClient:
         """Hand a new password to the service, which encrypts it.
 
         The app does not keep it, does not read it back, and has nowhere to
-        store it: the service and the logged-in user are different accounts, and
-        a secret saved here would be unreadable to the half that needs it.
+        store it: the service owns the secret, so there is one place it can leak
+        from, and nothing here to change if the service ever runs under an
+        identity of its own.
         """
         reply = self._ask("account.set", username=username, password=password)
         return bool(reply.get("restart_needed"))

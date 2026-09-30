@@ -31,7 +31,7 @@ jobs:
       - name: ruff
         run: |
           ruff check .
-          ruff format --check src tests scripts
+          ruff format --check src tests scripts packaging
       - name: mypy
         run: mypy
 

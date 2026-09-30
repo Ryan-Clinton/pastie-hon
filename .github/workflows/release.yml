@@ -1,0 +1,102 @@
+name: Release
+
+# Pushing a tag like v0.3.0 builds the Windows download and publishes a GitHub
+# Release with it. The build is tested *as built*, not just as source: SPEC.md
+# section 11 asks for the packaged artefact to be exercised, and a native
+# library PyInstaller left behind only shows itself on somebody else's PC.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]" -c constraints.txt
+
+      - name: the tag matches the version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          version=$(python -c "import pastie; print(pastie.__version__)")
+          test "v$version" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} but pastie ${version}"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: version (manual run)
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        shell: bash
+        run: echo "VERSION=$(python -c 'import pastie; print(pastie.__version__)')" >> "$GITHUB_ENV"
+
+      - name: the checks CI runs
+        run: |
+          pytest -q
+          python scripts/third_party_notices.py --check
+
+      - name: build
+        run: pyinstaller packaging/pastie.spec --noconfirm --distpath build/pkg/dist --workpath build/pkg/work
+
+      - name: the build carries what the service needs
+        run: |
+          build\pkg\dist\Pastie\pastie-cli.exe --self-check
+          build\pkg\dist\Pastie\pastie-cli.exe --version
+          build\pkg\dist\Pastie\pastie-cli.exe demo all
+        shell: cmd
+
+      - name: zip
+        shell: pwsh
+        run: |
+          Copy-Item THIRD_PARTY_NOTICES.txt, LICENSE build\pkg\dist\Pastie\
+          Compress-Archive build\pkg\dist\Pastie "build\pkg\Pastie-$env:VERSION-Windows-x64.zip"
+
+      - name: installer
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+            if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y | Out-Null }
+            $env:PATH += ";${env:ProgramFiles(x86)}\Inno Setup 6"
+          }
+          iscc "/DVersion=$env:VERSION" packaging\pastie.iss
+          Move-Item "build\pkg\installer\PastieSetup-$env:VERSION.exe" build\pkg\
+
+      - name: checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem build\pkg\*.zip, build\pkg\*.exe |
+            ForEach-Object { "{0}  {1}" -f (Get-FileHash $_ -Algorithm SHA256).Hash.ToLower(), $_.Name } |
+            Set-Content -Encoding ascii build\pkg\SHA256SUMS.txt
+          Get-Content build\pkg\SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pastie-windows
+          path: |
+            build/pkg/*.zip
+            build/pkg/*.exe
+            build/pkg/SHA256SUMS.txt
+
+      - name: release notes from the changelog
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: python scripts/release_notes.py "$VERSION" > build/pkg/NOTES.md
+
+      - name: publish
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Pastie $VERSION" \
+            --notes-file build/pkg/NOTES.md \
+            build/pkg/*.zip build/pkg/*.exe build/pkg/SHA256SUMS.txt

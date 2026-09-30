@@ -7,14 +7,14 @@ it is the first job on the list.
 What replaces it:
 
 * The password is encrypted with **DPAPI**, Windows' own facility, under the
-  identity of whoever writes it. The service writes it, so the service can read
-  it back and nobody else on the machine can - not another account, and not
-  somebody who copies the file to a different PC.
+  Windows account that runs the service. Today that is you: the service starts
+  at login as a login task, not as a Windows service. The file cannot be
+  decrypted by another Windows account, or on another PC it is copied to.
 * **The app never reads a password and never stores one.** It hands a new one to
-  the service over the private channel, and the service is what encrypts it.
-  This matters because the service and the logged-in user are different
-  accounts: a secret saved under your profile would be unreadable to the service
-  that actually needs it.
+  the service over the private channel, and the service is what encrypts it. One
+  owner for the secret means one place it can leak from, and it keeps working
+  unchanged if the service ever moves to an identity of its own (SPEC 14,
+  experiment 4 - still open).
 
 `PASTIE_ALLOW_PLAIN_SECRETS` exists for development on machines without DPAPI,
 and it says so loudly in the file it writes. It is not a supported way to run.

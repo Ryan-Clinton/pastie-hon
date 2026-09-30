@@ -1,15 +1,46 @@
 # Changelog
 
-Notable changes, newest first. Dates are when the work landed, not when anybody
-released anything — nothing has been released yet.
+Notable changes, newest first. Dates are when the work landed. 0.3.0 is the
+first version meant to be published as a GitHub Release; its section below is
+also its release notes (`scripts/release_notes.py` copies it across).
 
 The format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## [0.3.0] — first public release (not yet tagged)
+
+Pastie watches a Haier hOn appliance and tells the rest of your home when it
+finishes: a Hue light, a spoken announcement on Google Home, a Windows
+notification, a webhook. It needs no Home Assistant and, as of this release,
+no Python either. Download the installer or the zip, sign in to hOn, and choose
+what should happen.
+
+- **Verified on:** Haier HD90-A2959R-UK tumble dryer: monitoring, finish and
+  fault alerts, the full water tank, filter reminders, and remote start of a
+  cycle armed at the machine.
+- **Detected, not interpreted:** every other hOn appliance type, shown with raw
+  values only. A washing machine profile is written but unverified until one
+  has been watched through real cycles.
+- **Limitations:** Windows only. Depends on an unofficial hOn client that Haier
+  can break at any time. The service runs at sign-in as you, not as a Windows
+  service. hOn accounts created with Google sign-in need a password set.
+- **Verify the download** against `SHA256SUMS.txt` attached to the release.
+
 ### Added
 
+- **A Windows download.** `PastieSetup-<version>.exe`, a per-user installer
+  with no administrator prompt that puts Pastie on the Start menu and, if you
+  tick it, starts the watcher at sign-in. Also `Pastie-<version>-Windows-x64.zip`
+  for anyone who would rather not install. Built by
+  `.github/workflows/release.yml` from `packaging/`. Every build is checked as
+  built with `pastie-cli --self-check`, which imports every native part the
+  service needs, and a full demo run.
+- **Windows notifications** (`messengers/desktop.py`), for anybody with no
+  bridge, speaker or webhook receiver. No new dependency: Windows' own toast
+  notifications, through Windows PowerShell. The event's text is passed as
+  data, never as script.
 - **A washing machine profile, written ahead of one arriving** (a Haier
   HW100-BP14357, X5). **Unverified**: it gives a washer its name and labels its
   phases "(unconfirmed)" in the diagnostics, and it interprets nothing. There is
@@ -123,6 +154,18 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Time dropdown are filled from what the chosen programme allows, with its
   default in Haier's data marked "(recommended)" and selected. A setting the
   programme fixes is shown as "(fixed)" and not sent.
+
+### Changed
+
+- **The distribution is now `pastie-hon`**, matching the repository, because
+  `pastie` on PyPI belongs to an unrelated project. The import and the `pastie`
+  commands are unchanged. Reinstall an existing checkout with
+  `pip install -e . -c constraints.txt`.
+- **The explanation of where the password is kept is corrected.** The docs said
+  the service runs under its own Windows identity. It doesn't: it runs as you,
+  at sign-in. The encryption itself was always right (DPAPI, under the account
+  that runs the service, useless on another account or PC); the stated reason
+  was stale.
 
 ### Fixed
 

@@ -31,7 +31,13 @@ def service_command() -> list[str]:
 
     `pythonw` rather than `python` when it is there: a console window flashing
     up behind the app looks like something went wrong.
+
+    In the packaged build there is no Python to hand `-m` to: `sys.executable`
+    is Pastie.exe itself, a windowed program, and it runs the command line when
+    given arguments (packaging/entry.py).
     """
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "service"]
     executable = Path(sys.executable)
     quiet = executable.with_name("pythonw.exe")
     if quiet.exists():

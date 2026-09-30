@@ -4,13 +4,19 @@ about: Help make an appliance type verified
 labels: appliance-support
 ---
 
-This is the most useful contribution anyone can make, and it does not need any
-code to start.
+This is the most useful contribution anyone can make, and it needs no
+programming. Haier, Candy and Hoover appliances on hOn are all welcome.
 
-**What appliance is it?** Type and model.
+**What appliance is it?** Brand, type and model.
 
-**What does Pastie show now?** `pastie status` — it should detect and name it,
-and show raw values without interpreting them.
+**What does Pastie show now?** The window's Diagnostics, or `pastie-cli status`
+from the download's folder (`pastie status` from source). It should detect and
+name the appliance and show raw values without interpreting them.
+
+**What changed during a cycle?** Pastie writes a line to its log every time a
+raw value changes (`pastie-cli where` shows where the log is). Run one normal
+cycle and quote the lines, with what you were doing at the time: "started it
+at 20:05", "opened the door at 21:40".
 
 **Which raw values have you actually confirmed?**
 

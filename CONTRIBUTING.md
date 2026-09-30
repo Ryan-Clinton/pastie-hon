@@ -39,7 +39,7 @@ Before sending anything, these all have to be clean:
 ```
 pytest
 ruff check .
-ruff format --check src tests scripts
+ruff format --check src tests scripts packaging
 mypy
 ```
 
@@ -63,8 +63,10 @@ and `src/pastie/messengers/webhook.py` is the shortest example to copy - about
 eighty lines including its docstring. LIFX, WiZ and Nanoleaf all talk directly
 over your home network with no accounts involved, so they're approachable.
 
-**Just want to help?** Phone notifications through ntfy or Telegram, and a plain
-Windows desktop notification, are both a single messenger file each.
+**Just want to help?** Native phone notifications through ntfy or Telegram are
+a single messenger file each - `src/pastie/messengers/desktop.py`, the Windows
+notification, is the pattern. [docs/ROADMAP.md](docs/ROADMAP.md) lists what's
+next, and issues labelled `help wanted` are ready to pick up.
 
 ## Where the code lives
 

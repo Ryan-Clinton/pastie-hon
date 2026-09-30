@@ -501,7 +501,7 @@ function renderAccount(s) {
   const card = $("account-card");
   card.innerHTML = `
     <div class="label">HON ACCOUNT</div>
-    <p class="muted">The service encrypts this under its own Windows account. It is never stored here, and it cannot be read back out.</p>
+    <p class="muted">The service encrypts this with Windows DPAPI under the Windows account running it (yours, as it starts at sign-in), so the file is useless on any other account or PC. It is never stored here, and it cannot be read back out.</p>
     <p>${s.ok && s.account ? "An account is saved." : (s.ok ? "No account saved." : "")}</p>
     <div class="field"><label for="acct-user">Email</label><input type="text" id="acct-user" autocomplete="off"></div>
     <div class="field"><label for="acct-pass">Password</label><input type="password" id="acct-pass" autocomplete="off"></div>
@@ -828,7 +828,7 @@ async function startOnboarding(asides) {
       <div class="card">
         <img class="onboard-crest" src="brand/crest.png" alt="The Pastie crest">
         <h2>Connect your Haier account</h2>
-        <p class="muted">The service encrypts this under its own Windows account. It is never stored here, and it cannot be read back out.</p>
+        <p class="muted">The service encrypts this with Windows DPAPI under the Windows account running it (yours, as it starts at sign-in), so the file is useless on any other account or PC. It is never stored here, and it cannot be read back out.</p>
         <div class="field"><label for="ob-user">Email</label><input type="text" id="ob-user" autocomplete="off"></div>
         <div class="field"><label for="ob-pass">Password</label><input type="password" id="ob-pass" autocomplete="off"></div>
         <button class="btn" id="ob-connect">Connect</button>

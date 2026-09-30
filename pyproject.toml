@@ -3,13 +3,16 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pastie"
-version = "0.2.0"
-description = "Appliance companion for Haier hOn appliances - state, alerts and control"
+# The distribution is `pastie-hon`, like the repository: `pastie` on PyPI is an
+# unrelated project from 2021. The package, the import and the commands stay
+# `pastie`.
+name = "pastie-hon"
+version = "0.3.0"
+description = "Standalone Windows companion for Haier hOn appliances - Hue, Google Home and desktop alerts, status and remote start. No Home Assistant required."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"          # PyChromecast needs 3.11+
-keywords = ["haier", "hon", "appliance", "tumble-dryer", "hue", "chromecast"]
+keywords = ["haier", "hon", "haier-hon", "appliance", "tumble-dryer", "hue", "chromecast", "google-home"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Win32 (MS Windows)",
@@ -126,6 +129,8 @@ ignore = [
 "tests/*" = ["ARG001", "ARG002", "SLF001"]
 # Shipped copy: one sentence per line, so a line can be read and edited whole.
 "src/pastie/app/voice.py" = ["E501"]
+# An embedded PowerShell script: WinRT type literals cannot be wrapped.
+"src/pastie/messengers/desktop.py" = ["E501"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "parents"

@@ -42,7 +42,7 @@ python -m venv .venv
 
 pytest -q --cov=pastie --cov-report=term-missing
 ruff check .
-ruff format --check src tests scripts
+ruff format --check src tests scripts packaging
 mypy
 python scripts/third_party_notices.py --check
 ```
@@ -102,11 +102,13 @@ appliance to confirm it, not somebody who reasoned about it.
 pipe rather than opening its own. Two connections can disagree about what the
 machine is doing. Nothing listens on a network address a browser could reach.
 
-**Credentials are DPAPI-encrypted under the service's own Windows identity, and
+**Credentials are DPAPI-encrypted under the Windows account running the
+service - today, the logged-in user, because the service is a login task - and
 there is deliberately no way to read one back out.** The app hands a new
 password to the service and never stores or reads one. Do not add a "show
 password" affordance, and do not move credential storage under the user profile:
-the service does not run as the user and could not read it.
+it has to stay where a service running under its own identity (SPEC 14,
+experiment 4) could still reach it.
 
 ## Dependencies are pinned exactly, on purpose
 
@@ -177,10 +179,25 @@ Success` appears. The prototype's notifier ran as SYSTEM but only ever *polled*,
 and MQTT is what drags in the Amazon networking components that are fussy about
 how they are started. Do not let the login task make this look finished.
 
-**Packaging.** There is still no `.exe` for the current build. `SPEC.md` section
-11 asks for the packaged artefact to be tested rather than just the code, and it
-is a real job now: two processes, and PyInstaller has to be talked through the
-Amazon networking components.
+**~~Packaging.~~** Done in 0.3.0, not yet released. `packaging/pastie.spec`
+builds one folder with two executables that share it: `Pastie.exe` (the window,
+and `Pastie.exe service` for the background half, which is how the window starts
+it) and `pastie-cli.exe` (the command line, with a console). `packaging/pastie.iss`
+wraps that folder in a per-user installer. `.github/workflows/release.yml`
+builds both on a `v*` tag, runs `pastie-cli --self-check` (it imports every
+native part: awscrt, awsiot, pyhon, pychromecast, zeroconf, gTTS, pywebview,
+pywin32) and a full demo run against the *built* folder, then publishes zip,
+installer and SHA256SUMS. The self-check caught one thing on its first run:
+Pillow is a declared dependency that no code imports, so the build rightly
+leaves it out.
+
+Not yet proven: the packaged service connecting to hOn and receiving MQTT
+pushes. Every native part imports, but nobody has run the frozen service
+against a real account yet, because the development machine's own service holds
+the single-instance lock. Do that once, by hand, before tagging: stop the dev
+service, run `Pastie.exe`, and watch for `Lifecycle Connection Success` in the
+log. The installer is also unsigned, so SmartScreen will warn; the README says
+so.
 
 **~~No pushed MQTT message has ever been observed.~~** Observed, 2026-09-06,
 during a real cycle. They arrive as parameter deltas rather than whole readings:

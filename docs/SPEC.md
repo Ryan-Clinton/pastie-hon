@@ -290,8 +290,8 @@ sensible it goes in the next release.
 
 **Ideas that would be genuinely useful:** LIFX, WiZ and Nanoleaf lights (all
 talk directly over your network, no accounts needed), phone notifications through
-ntfy or Telegram, a plain Windows desktop notification, or a webhook so people
-can wire it into anything at all.
+ntfy or Telegram. (A plain Windows notification and a webhook both exist now:
+`messengers/desktop.py` and `messengers/webhook.py`.)
 
 ### Rules for messengers
 
@@ -448,7 +448,7 @@ This is not stable ground, and the design should assume it.
 |---|---|---|
 | Haier change how logging in works | **Yes — June 2026.** Everything broke until the client caught up | Keep all Haier-specific code in the connector, so it's one file to fix |
 | The client gets abandoned | Not yet. It's a small team | Keep the connector boundary clean enough that it could be swapped out |
-| A dependency update breaks something | Yes, twice | Pin exact versions. Test the packaged `.exe`, not just the code |
+| A dependency update breaks something | Yes, twice | Pin exact versions. Test the packaged `.exe`, not just the code: the release workflow runs `pastie-cli --self-check` and the demo against the built folder |
 | The speech library breaks | Not yet, but it uses an undocumented endpoint | Isolate it; a failed announcement must not stop the light |
 | Haier object to the project existing | The original project got a legal complaint before things were patched up | See below |
 

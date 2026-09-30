@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Pastie (`pyproject` name `pastie`, repo `pastie-hon`) is an unofficial Windows companion for Haier hOn
+Pastie (distribution `pastie-hon`, import package and commands `pastie`) is an unofficial Windows companion for Haier hOn
 appliances: it watches an appliance through the community `pyhon-revived` client and reacts across
 other kit (Hue, Google Home via Cast, webhooks). It is built and verified against one machine, a
 **Haier HD90-A2959R-UK tumble dryer**. Read `docs/HANDOVER.md` for orientation; `docs/SPEC.md` is
@@ -15,7 +15,7 @@ the authority on design and on every hardware fact; `docs/UI-SPEC.md` governs th
 
 pytest -q --cov=pastie --cov-report=term-missing
 ruff check .
-ruff format --check src tests scripts
+ruff format --check src tests scripts packaging
 mypy                                                       # strict, covers src and tests
 python scripts/third_party_notices.py --check
 ```
@@ -32,6 +32,15 @@ claiming anything works.
   warning fails the run, and async tests need no decorator.
 - Run it: `pastie login`, `pastie service` (background half), `pastie status`, `pastie where`,
   `pastie test <messenger>`, `pastie-app` (the window, which starts the service itself if needed).
+- Windows build: `.venv\Scripts\python -m PyInstaller packaging/pastie.spec --noconfirm --distpath
+  build/pkg/dist --workpath build/pkg/work`, then `build\pkg\dist\Pastie\pastie-cli.exe --self-check`.
+  `.venv` has PyInstaller. One folder, two exes (`Pastie.exe` window/`service`, `pastie-cli.exe`);
+  `packaging/entry.py` dispatches, and `app/launch.py` starts the service as `Pastie.exe service` when
+  frozen. `.github/workflows/release.yml` builds zip + Inno Setup installer + SHA256SUMS on a `v*`
+  tag. The tag must equal `pastie.__version__`, and the release notes are that version's CHANGELOG
+  section (`scripts/release_notes.py`).
+- `scripts/demo_gif.py` regenerates `assets/demo.gif` from real demo output. Rerun it when demo
+  wording changes.
 - `pastie demo [cycle|gap|tank|noise|ignored|unverified|list|all]` replays recorded readings through the real
   connector, tracker and command tracker. Each scenario's claims are pinned in `tests/test_demo.py`,
   so changing behaviour means updating the demo narration too.

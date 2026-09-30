@@ -30,6 +30,8 @@ build/
 dist/
 *.exe
 *.spec
+# ...except the one that builds the Windows download.
+!packaging/pastie.spec
 
 # ---- SCRATCH ----
 *.bak
