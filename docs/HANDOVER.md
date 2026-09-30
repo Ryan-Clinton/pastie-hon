@@ -191,13 +191,11 @@ installer and SHA256SUMS. The self-check caught one thing on its first run:
 Pillow is a declared dependency that no code imports, so the build rightly
 leaves it out.
 
-Not yet proven: the packaged service connecting to hOn and receiving MQTT
-pushes. Every native part imports, but nobody has run the frozen service
-against a real account yet, because the development machine's own service holds
-the single-instance lock. Do that once, by hand, before tagging: stop the dev
-service, run `Pastie.exe`, and watch for `Lifecycle Connection Success` in the
-log. The installer is also unsigned, so SmartScreen will warn; the README says
-so.
+Proven 2026-09-30: with the development watcher stopped, the packaged
+`Pastie.exe service` logged in with the existing DPAPI-encrypted password,
+logged `Lifecycle Connection Success`, subscribed to the dryer's push topics, and
+`pastie-cli status` read the HD90 correctly (idle, Cotton). The installer is
+unsigned, so SmartScreen will warn; the README says so.
 
 **~~No pushed MQTT message has ever been observed.~~** Observed, 2026-09-06,
 during a real cycle. They arrive as parameter deltas rather than whole readings:
@@ -311,7 +309,8 @@ free on PyPI on 2026-09-30.
 
 **Before tagging 0.3.0**, two checks that nothing automated covers:
 
-- The packaged watcher against a real account. Stop the development watcher,
+- ~~The packaged watcher against a real account~~ (done 2026-09-30, see
+  Packaging above). To repeat it: stop the development watcher,
   run `build\pkg\dist\Pastie\Pastie.exe`, and look for
   `Lifecycle Connection Success` in the log (`pastie where`). It uses the same
   settings and the same DPAPI-encrypted password, because it runs as the same
