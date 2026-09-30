@@ -7,7 +7,10 @@ build-backend = "setuptools.build_meta"
 # unrelated project from 2021. The package, the import and the commands stay
 # `pastie`.
 name = "pastie-hon"
-version = "0.3.0"
+# The version lives in one place, `pastie.__version__`. It used to live here too,
+# and 0.3.1 was released with the two disagreeing: the Windows build read one,
+# PyPI the other, and the PyPI upload failed as a duplicate 0.3.0.
+dynamic = ["version"]
 description = "Standalone Windows companion for Haier hOn appliances - Hue, Google Home and desktop alerts, status and remote start. No Home Assistant required."
 readme = "README.md"
 license = "MIT"
@@ -39,7 +42,6 @@ dependencies = [
     "awscrt==0.36.1",
     "pychromecast==14.0.7",
     "gTTS==2.5.4",
-    "pillow==11.3.0",
     "pywin32==312 ; sys_platform == 'win32'",
     # The window: a web page in a native window, drawn by WebView2 (UI-SPEC 5).
     "pywebview==6.2.1 ; sys_platform == 'win32'",
@@ -49,13 +51,19 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest==8.4.2",
-    "pytest-asyncio==1.2.0",
+    # 9.0.3 is the first pytest without PYSEC-2026-1845 (pip-audit, 2026-09-30).
+    "pytest==9.0.3",
+    "pytest-asyncio==1.4.0",
     "pytest-cov==7.0.0",
     "ruff==0.16.6",
     "mypy==2.3.1",
     "pyinstaller==6.22.2",
     "pip-licenses==5.0.0",     # generates THIRD_PARTY_NOTICES.txt
+    # Only scripts/demo_gif.py and scripts/screenshots.py use Pillow. It used
+    # to be a runtime dependency that nothing imported, and so shipped in every
+    # download (PyInstaller rightly left it out; PyPI installs did not).
+    "pillow==12.3.0",
+    "pip-audit==2.10.1",
 ]
 
 [project.scripts]
@@ -68,6 +76,9 @@ pastie-app = "pastie.app.main:main"
 Source = "https://github.com/Ryan-Clinton/pastie-hon"
 Issues = "https://github.com/Ryan-Clinton/pastie-hon/issues"
 Changelog = "https://github.com/Ryan-Clinton/pastie-hon/blob/main/CHANGELOG.md"
+
+[tool.setuptools.dynamic]
+version = { attr = "pastie.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -10,6 +10,33 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Fixed
+
+- **One version number.** 0.3.1 was tagged with `pastie.__version__` at 0.3.1
+  and `pyproject.toml` still at 0.3.0. The Windows build used the first and
+  published correctly; the PyPI build used the second, and the upload was
+  refused as a duplicate 0.3.0, so PyPI never received 0.3.1. The version now
+  comes from `pastie.__version__` alone (setuptools' dynamic version), the
+  release workflow checks the package metadata against the tag too, and
+  `tests/test_version.py` keeps pyproject from growing a second copy.
+
+### Security
+
+- **Pillow is no longer a runtime dependency.** Nothing in Pastie imports it;
+  it was a leftover, and 11.3.0 has 13 published advisories. The Windows
+  download never contained it, but `pip install pastie-hon` did. It stays as a
+  development tool (12.3.0) for the screenshot and GIF scripts.
+- **pytest 9.0.3** (development only), for PYSEC-2026-1845.
+- **A weekly dependency audit** (`.github/workflows/security.yml`): pip-audit
+  over every locked pin, plus GitHub's dependency review on pull requests. One
+  finding is accepted, with its reason written beside it in the workflow:
+  click's `click.edit()` advisory. click comes only through gTTS, whose latest
+  release requires click<8.2, and neither gTTS nor Pastie can reach
+  `click.edit()`.
+- **Every GitHub Action pinned to a commit**, with Dependabot proposing
+  updates, because these workflows build what users install and, soon, what
+  gets signed. Dependabot vulnerability alerts and security updates are on.
+
 ## [0.3.1] — 2026-09-30
 
 A small follow-up to the first public preview, mostly for people helping to

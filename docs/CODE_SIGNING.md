@@ -1,9 +1,9 @@
 # Code signing policy
 
-**Status: not yet signed.** Pastie's Windows downloads are currently unsigned,
-so Windows SmartScreen warns about them. The project intends to apply to the
-[SignPath Foundation](https://signpath.org/) for free open-source code
-signing, and this page is written to its requirements. Once the project is
+**Status: application submitted to the [SignPath Foundation](https://signpath.org/)
+on 30 September 2026.** Until it's reviewed, Pastie's Windows downloads stay
+unsigned, and Windows SmartScreen warns about them. This page is written to the
+Foundation's requirements. Once the project is
 accepted, this line will read: *Free code signing provided by
 [SignPath.io](https://signpath.io), certificate by
 [SignPath Foundation](https://signpath.org).*
@@ -16,7 +16,9 @@ on GitHub's own runners, from a `v*` tag:
 - `Pastie.exe` and `pastie-cli.exe` in the PyInstaller folder
 - `PastieSetup-<version>.exe`, the Inno Setup installer that wraps them
 
-Nothing built on a developer's machine is ever signed. Each binary carries the
+Nothing built on a developer's machine is ever signed. Every GitHub Action the
+workflow uses is pinned to a full commit, not a movable tag, and Dependabot
+proposes updates as reviewable pull requests. Each binary carries the
 product name *Pastie* and the version from `pastie.__version__`, set by
 `packaging/pastie.spec` and `packaging/pastie.iss`. The release workflow refuses
 to build a tag that doesn't match that version.

@@ -1,0 +1,47 @@
+name: Security
+
+# Pastie holds an hOn password, talks to devices on the local network, and
+# can start an appliance. Its dependencies are pinned exactly, which keeps two
+# installs identical, and also means nothing moves unless somebody notices it
+# should. This is the noticing: a weekly audit of the whole locked set, and a
+# review of anything a pull request adds.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: known vulnerabilities in the locked dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit==2.10.1
+      # Every pin in constraints.txt, runtime and development alike, without
+      # installing anything. Accepted findings are listed with their reason,
+      # and nothing else is ignored:
+      #
+      # PYSEC-2026-2132 / CVE-2026-7246 - click.edit() command injection.
+      #   click arrives only through gTTS, whose latest release requires
+      #   click<8.2 (the fix is 8.3.3). gTTS imports click solely for its own
+      #   `gtts-cli` command, which Pastie never loads, and Pastie never calls
+      #   click.edit(). Revisit when gTTS allows a fixed click.
+      - run: >
+          pip-audit --disable-pip --no-deps -r constraints.txt
+          --ignore-vuln PYSEC-2026-2132
+
+  review:
+    name: dependencies added by this pull request
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4

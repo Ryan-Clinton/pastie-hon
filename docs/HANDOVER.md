@@ -126,6 +126,16 @@ failed on a commit that changed no dependency at all. `constraints.txt` now lock
 the whole resolved set, and CI installs with it. Regenerate it from a clean
 virtual environment, never a working one; its header says how.
 
+**Auditing the pins.** `.github/workflows/security.yml` runs pip-audit over
+`constraints.txt` weekly and on every pull request. An accepted finding goes in
+that workflow as `--ignore-vuln <id>` with its reason in a comment beside it,
+never silently. As of 2026-09-30 the only one is click's `click.edit()`
+advisory, which can't be fixed until gTTS allows click 8.3.3+. When the lock
+changes, change the fewest lines that fix the problem: seed a clean venv with
+the old `constraints.txt` minus the lines that must move, rather than
+re-resolving everything. The 2026-09-30 update (Pillow out, pytest 9) moved
+only those packages and pip-audit's own helpers.
+
 `THIRD_PARTY_NOTICES.txt` is generated from the pinned set by
 `scripts/third_party_notices.py`, never edited by hand, and CI checks it on
 Windows because the notices describe what ships inside the Windows .exe and the

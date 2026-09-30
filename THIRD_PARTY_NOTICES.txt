@@ -11,7 +11,7 @@ their full text and any NOTICE file to be shipped alongside the binary. Where a
 package below is Apache-2.0, its LICENSE and NOTICE files are included in the
 distribution.
 
-Generated: 2026-09-25
+Generated: 2026-09-30
 
 
 aiohappyeyeballs 2.7.1
@@ -102,11 +102,6 @@ multidict 6.8.0
     Licence : Apache License 2.0
     Author  : Andrew Svetlov
     Home    : https://github.com/aio-libs/multidict
-
-pillow 11.3.0
-    Licence : UNKNOWN
-    Author  : "Jeffrey A. Clark" <aclark@aclark.net>
-    Home    : https://python-pillow.github.io
 
 propcache 0.5.2
     Licence : Apache Software License

@@ -1,0 +1,17 @@
+# The workflows pin every action to a commit, because they build what users
+# install (and, once code signing is in place, what gets signed). A tag like
+# @v4 can be moved; a commit cannot. Dependabot proposes the updates as pull
+# requests, so pinned never means forgotten.
+#
+# Python packages are not listed here on purpose: they are locked as a set in
+# constraints.txt, which has to be regenerated from a clean environment (see
+# its header), and Dependabot would bump one pin and leave the set
+# inconsistent. The weekly Security workflow audits them instead.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
