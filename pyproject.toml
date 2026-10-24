@@ -62,7 +62,7 @@ dev = [
     # Only scripts/demo_gif.py and scripts/screenshots.py use Pillow. It used
     # to be a runtime dependency that nothing imported, and so shipped in every
     # download (PyInstaller rightly left it out; PyPI installs did not).
-    "pillow==12.3.0",
+    "pillow==13.0.0",
     "pip-audit==2.10.1",
 ]
 
